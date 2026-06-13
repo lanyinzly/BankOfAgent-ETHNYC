@@ -130,3 +130,64 @@ To run it, fund wallet A with both test USDC **and** test ETH (gas). Status: **R
 tx hash and verified `A↓ / B↑` balance change, gas paid in USDC. The Base Sepolia
 fallback is ready as a drop-in (standard USDC ERC-20 `transfer`) if Arc is ever
 unavailable.
+
+---
+
+# Agentic demo — Circle Programmable Wallets + CCTP V2 + x402
+
+A second spike (`src/agentic/`) wires the full agent-payments loop:
+
+1. **Circle Programmable Wallets** give each agent a wallet.
+2. **CCTP V2** bridges USDC from another chain **into Arc** (burn → attest → mint).
+3. **x402** lets an agent **pay the relay per usage**, settled on Arc.
+
+```bash
+npm run agentic        # runs all three legs, one command
+# extras:
+npm run cctp           # just the CCTP V2 bridge step (simulate; CCTP_LIVE=1 to execute)
+npm run agent-wallets  # just provision agent wallets
+```
+
+### Real vs simulated (honest split)
+| Leg | Mode in this run | How to make it live |
+| --- | --- | --- |
+| **1. Programmable Wallets** | **SIMULATE** — local ethers wallets stand in for Circle PW (reuses the funded `.env` A/B) | set `CIRCLE_API_KEY` + `CIRCLE_ENTITY_SECRET`; code calls `@circle-fin/developer-controlled-wallets` → `createWalletSet` → `createWallets({blockchains:["ARC-TESTNET"]})` |
+| **2. CCTP V2 bridge** | **SIMULATE** — prints the exact real calls (real contracts/domains) | set `CCTP_LIVE=1` + a funded Base Sepolia sender (USDC + test ETH for gas); code runs `approve → depositForBurn → poll Iris → receiveMessage` |
+| **3. x402 pay-per-usage** | **REAL on-chain on Arc** ✅ | already live — each call settles a USDC transfer on Arc |
+
+> Why 1 & 2 are simulated: no Circle API key and no funded source-chain USDC are
+> available to an unattended agent here. The code paths are real and gated, not faked —
+> flip the env vars/funds and they execute. The x402 leg runs for real because the
+> agent's faucet USDC is already on Arc.
+
+### CCTP V2 facts used (testnet, verified 2026-06-13)
+- TokenMessengerV2: `0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA`
+- MessageTransmitterV2: `0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275`
+- Attestation (Iris sandbox): `https://iris-api-sandbox.circle.com/v2/messages/{srcDomain}?transactionHash=…`
+- Domains: Ethereum Sepolia `0`, Avalanche Fuji `1`, **Base Sepolia `6`**, **Arc `26`**
+- `depositForBurn(amount, destinationDomain, mintRecipient, burnToken, destinationCaller, maxFee, minFinalityThreshold)` — `minFinalityThreshold=2000` standard / `1000` fast.
+
+### x402 note
+This demo uses the x402 **shape** (`402` → `accepts` → `X-PAYMENT` → on-chain verify),
+settling via a direct USDC transfer on Arc that the relay verifies from the receipt. The
+canonical x402 EVM *exact* scheme instead settles via **EIP-3009 `transferWithAuthorization`**
+through a facilitator (gasless for the payer). That's the production upgrade path; the
+HTTP/verification flow here is identical.
+
+### Actual run — `npm run agentic` (2026-06-13)
+x402 leg, **live on Arc** — relay billed per requested usage:
+
+| Call | maxTokens | Paid (USDC) | Settlement tx |
+| --- | --- | --- | --- |
+| 1 | 256 | 0.00512 | `0x4d3879e3a9cb46bac4b6e833bee0435e4374e8416893587abf830c6f8bde42d3` |
+| 2 | 512 | 0.01024 | `0x79de2b53f80828e01052df2ad2a7fbf4ec0d6543b5d4805955e4335b13a1f363` |
+| 3 | 1024 | 0.02048 | `0x9f551c4a6c5727df1e38262ac22c5ec9d2e707eddc57c95cd459db66226fb6c6` |
+
+- relay balance: `1.0 → 1.03584 USDC` (delta **+0.03584** = total usage billed).
+- agent balance: `18.99852 → 18.959743 USDC` (delta **−0.038777** = usage `0.03584` + gas, both in USDC).
+- **Independently confirmed via raw RPC:** relay `balanceOf` = `1035840` (1.03584 USDC); call-1 receipt `status` = `1`.
+- **RESULT: PASS ✅** — relay paid per-usage via x402, settled on Arc.
+
+This is the BoA loop in miniature: an agent funds on Arc (via CCTP), holds a (Circle PW)
+wallet, and **pays a metered service per call in USDC on Arc** — i.e. the "spot price /
+live per-call metering" primitive, settled on the rail this spike proved.
