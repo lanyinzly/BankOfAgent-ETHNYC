@@ -6,9 +6,11 @@
   "description": "Sprint 0 spike: prove the USDC settlement rail works on Arc testnet (with a Base Sepolia fallback).",
   "scripts": {
     "gen": "tsx src/genWallets.ts",
+    "preflight": "tsx src/preflight.ts",
     "arc": "tsx src/transfer.ts arc",
     "base": "tsx src/transfer.ts base",
     "agentic": "tsx src/agentic/demo.ts",
+    "demo": "npm run preflight && npm run arc && npm run agentic",
     "cctp": "tsx src/agentic/cctp.ts",
     "agent-wallets": "tsx src/agentic/wallets.ts"
   },
