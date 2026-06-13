@@ -88,9 +88,12 @@ async function main(): Promise<void> {
   console.log(JSON.stringify(receipt, null, 2));
   console.log(`    recovered signer (anyone can verify): ${verifyReceipt(receipt)}`);
 
-  // 2) Create the HCS topic.
+  // 2) Create the HCS topic. Admin + submit keys gate it to the operator/router key,
+  //    so only BoA can append receipts (per the hedera-dev native-services HCS skill).
   const createResp = await new TopicCreateTransaction()
     .setTopicMemo("BoA usage-receipt proof rail (Sprint 0 spike)")
+    .setAdminKey(key.publicKey)
+    .setSubmitKey(key.publicKey)
     .execute(client);
   const topicId = (await createResp.getReceipt(client)).topicId!;
   console.log(`\n[2] created topic: ${topicId.toString()}`);

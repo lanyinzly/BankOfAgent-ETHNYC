@@ -81,6 +81,23 @@ this — it's a protocol/port limitation of the HTTP/HTTPS proxy, not a domain b
 
 **To finish the gate, run the write half where egress is open** (see below).
 
+### Cross-checked against the official Hedera skill
+
+Validated this spike against Hedera's own
+[`hedera-dev/hedera-skills`](https://github.com/hedera-dev/hedera-skills) →
+`plugins/native-services-js/skills/hedera-consensus-service`. It prescribes the exact
+pattern we use (`TopicCreateTransaction` → `TopicMessageSubmitTransaction` →
+`.execute(client)` → `getReceipt`), and its "Network Transport" note is explicit:
+submission *"uses the SDK **gRPC client** to consensus nodes"* — there is **no
+HTTP/REST submit path** for HCS. So the skill confirms the sandbox block is inherent,
+not a gap in our code. Two notes:
+
+- We adopted the skill's best practice of gating the topic with **admin + submit keys**
+  (only the BoA operator/router key may append receipts).
+- The skill reads back via the SDK's `TopicMessageQuery.subscribe()` (a mirror-node
+  **gRPC stream**); we instead read via the mirror-node **REST API over HTTPS/443**,
+  which is both what the task asked for and the only read path that works in-sandbox.
+
 ---
 
 ## Account source (researched 2026-06-13, not from memory)
