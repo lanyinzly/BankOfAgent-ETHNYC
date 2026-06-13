@@ -1,0 +1,13 @@
+{
+  "network": "sepolia",
+  "controller": "0xdf60C561Ca35AD3C89D24BbA854654b1c3477078",
+  "parentName": "boa-spike-20584f76.eth",
+  "fullName": "agent-a.boa-spike-20584f76.eth",
+  "owner": "0x107a19A67c5076D792E7916c1c29634873Ae0F0e",
+  "agentAddress": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "resolvedAddress": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "boaUsage": "{\"agent\":\"agent-a.boa-spike-20584f76.eth\",\"period\":\"2026-06-13\",\"model\":\"claude-opus\",\"requests\":97,\"tokensIn\":120443,\"tokensOut\":88210,\"digest\":\"0x126f90d00db63b76a1559b799c3bd281434b2698ccf1a5fbbab173ec53c97f70\"}",
+  "pass": true,
+  "registerTx": "https://sepolia.etherscan.io/tx/0xbc4e2369bd6be1b3da8d883502efe00dda0aeebf6a10f3afb67f8f9beb56e52a",
+  "ensApp": "https://sepolia.app.ens.domains/agent-a.boa-spike-20584f76.eth"
+}

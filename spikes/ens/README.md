@@ -11,12 +11,17 @@ agent (a **subname** `agent-a.<parent>.eth` → address) **and** write + read ba
 | **[1] LOCAL write + read-back** (the gate / DoD) | subname → address resolves, and a `boa.usage` text record is written and read back **byte-for-byte identical**, using the **real ENS `ENSRegistry` + `OwnedResolver` contracts** | **PASS ✅** |
 | **[2] LIVE mainnet resolution** (bonus) | the same `viem` ENS code path reaches **production ENS** (`vitalik.eth` → addr + `avatar` text record) | **OK ✅** |
 | **[3] STATIC fallback** | offline `name → address + records` mirror for demo day if an RPC is down | **OK ✅** |
+| **[4] LIVE SEPOLIA write + read-back** (real testnet, funded) | registered `boa-spike-20584f76.eth`, created `agent-a.boa-spike-20584f76.eth`, wrote + read back `boa.usage` **on-chain** via the Universal Resolver | **PASS ✅** |
 
-The write/read-back is proven against the **genuine ENS contracts** (shipped in
-`@ensdomains/ens-contracts`), deployed onto a disposable in-process chain. So this
-is a faithful test of the ENS rail itself — **not a mock** — while needing **no
-faucet, no funded key, and no flaky testnet** in the loop. The identical flow on
-live **Sepolia** is provided as a ready-to-run script (`writeread:sepolia`).
+The write/read-back is proven two ways: against the **genuine ENS contracts**
+(shipped in `@ensdomains/ens-contracts`) on a disposable in-process chain — **no
+faucet/key/testnet needed** — and **for real on Sepolia** (a funded key registered
+a name and wrote the record on-chain). Both are faithful tests of the ENS rail, not mocks.
+
+**Live Sepolia artifacts** (run 2026-06-13):
+- subname: [`agent-a.boa-spike-20584f76.eth`](https://sepolia.app.ens.domains/agent-a.boa-spike-20584f76.eth) → `0x7099…79C8`
+- register tx: [`0xbc4e2369…56e52a`](https://sepolia.etherscan.io/tx/0xbc4e2369bd6be1b3da8d883502efe00dda0aeebf6a10f3afb67f8f9beb56e52a)
+- full record + links saved in [`sepolia-result.json`](./sepolia-result.json)
 
 ## Run it (one command)
 
@@ -61,36 +66,42 @@ VERDICT
   throwaway **in-process chain** (`ganache`), then build the name tree
   `eth → <parent>.eth → agent-a.<parent>.eth`, `setAddr`, `setText(boa.usage, …)`,
   and read both back via `registry.resolver(node) → resolver.addr/text(node)`.
-- **Why not write straight to Sepolia in this run:** the spike sandbox has **no
-  funded Sepolia key and no faucet access**, and `.eth` registration needs gas +
-  the registrar/controller. Per the gate's discipline ("if testnet won't run in 30
-  min, don't block — prove the rail another way and harden the fallback"), we prove
-  the rail with the **real contracts locally** and ship the Sepolia script
-  ready-to-run. `OwnedResolver` is used instead of `PublicResolver` only because
-  `PublicResolver`'s constructor calls a reverse-registrar that doesn't exist on a
-  bare registry; `OwnedResolver` exposes the same `addr/text/setAddr/setText`
-  profile.
+  `OwnedResolver` is used instead of `PublicResolver` only because the latter's
+  constructor calls a reverse-registrar that doesn't exist on a bare registry;
+  `OwnedResolver` exposes the same `addr/text/setAddr/setText` profile.
 - **Live mainnet** is used for the read-only bonus check (real ENS, real
   Universal Resolver via `viem`).
+- **Live Sepolia** registers a real `.eth`, creates the subname, and writes/reads
+  the `boa.usage` record fully on-chain (see [4] above).
 
-### Doing it for real on Sepolia (when you have a funded key)
-
-The flow is identical against live Sepolia ENS
-(registry `0x0000…2e1e`, PublicResolver `0xE996…49b5`):
+### Doing it for real on Sepolia (funded key)
 
 ```bash
-# read-only preflight — no key needed, confirms Sepolia ENS is reachable
-npm run writeread:sepolia
-
-# full write + read-back — needs Sepolia ETH + an UNWRAPPED parent name you own
-SEPOLIA_RPC_URL=https://… \
-PRIVATE_KEY=0x… \
-PARENT_NAME=yourname.eth \
-AGENT_LABEL=agent-a \
-npm run writeread:sepolia
+# the funded key lives in spikes/ens/.sepolia-key (gitignored) — or pass PRIVATE_KEY
+npm run sepolia:full
+# optional overrides: PARENT_LABEL=mylabel AGENT_LABEL=agent-a AGENT_ADDRESS=0x… npm run sepolia:full
 ```
 
-(The preflight already passes here: chainId `11155111`, registry + resolver have code.)
+It registers `boa-spike-<rand>.eth`, creates `agent-a.…`, writes `setAddr` +
+`boa.usage`, reads both back via the Universal Resolver, and saves
+`sepolia-result.json`. A 1-year registration cost **0 test-ETH** on the live
+controller (just gas).
+
+#### ⚠️ Gotcha — Sepolia ENS is mid-migration to ENSv2
+
+The controller address published **both** in `@ensdomains/ens-contracts` **and** on
+`docs.ens.domains` (`0xfb3cE5…F1f968`) has been **removed** as a registrar
+controller — calling its `register` reverts with empty data (`onlyController`).
+The actually-active controller was found on-chain by reading recent
+`NameRegistered` txs on the `.eth` BaseRegistrar (`0x57f1…`):
+
+- **live controller:** `0xdf60C561Ca35AD3C89D24BbA854654b1c3477078`
+- it's a **simplified** controller: **no commit/reveal, `value 0`**, and names are
+  owned **directly (unwrapped)** by the registrant — so subnames are created with
+  `registry.setSubnodeRecord`, not via NameWrapper.
+
+`SEPOLIA_CONTROLLER=0x…` overrides it if the active controller rotates again.
+(`writeread:sepolia` is a lighter read-only preflight / owned-parent variant.)
 
 ## Fallback — static identity map (demo insurance)
 
@@ -116,7 +127,9 @@ On stage we read from a static mirror so the demo never blocks on an RPC.”*
 |---|---|
 | `src/spike.ts` | **one-command gate** — runs [1]+[2]+[3], prints the verdict |
 | `src/write-read-local.ts` | **the proof** — real ENS contracts on a local chain; subname + `boa.usage` write/read-back |
-| `src/write-read-sepolia.ts` | same flow on **live Sepolia** (preflight without a key; full run with a funded key) |
+| `src/register-and-write-sepolia.ts` | **live Sepolia full run** (`sepolia:full`) — registers a name + subname + record on-chain, read-back via Universal Resolver |
+| `sepolia-result.json` | saved artifacts from the live Sepolia PASS (name, address, record, tx links) |
+| `src/write-read-sepolia.ts` | lighter Sepolia read-only preflight / owned-parent variant |
 | `src/resolve-live.ts` | live mainnet resolution + text-record read (bonus) |
 | `src/static-map.ts` + `identity-map.json` | offline fallback map + reader (`resolveStatic`, `getStaticText`) |
 | `src/ens-fixtures.ts` | loads the real ENS contract ABIs + bytecode |
