@@ -9,6 +9,7 @@
     "resolve:live": "tsx src/resolve-live.ts",
     "writeread:local": "tsx src/write-read-local.ts",
     "writeread:sepolia": "tsx src/write-read-sepolia.ts",
+    "sepolia:full": "tsx src/register-and-write-sepolia.ts",
     "fallback": "tsx src/static-map.ts"
   },
   "license": "MIT",
