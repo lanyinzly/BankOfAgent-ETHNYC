@@ -99,13 +99,14 @@ export class InMemoryFoamm implements ChainAdapter {
     return { tokenId, refund: formatEther(refund) };
   }
 
-  async transfer(from: `0x${string}`, to: `0x${string}`, tokenId: number): Promise<void> {
+  async transfer(from: `0x${string}`, to: `0x${string}`, tokenId: number): Promise<{ txHash?: string }> {
     const owner = this.owners.get(tokenId);
     if (!owner) throw new Error(`token ${tokenId} does not exist`);
     if (owner.toLowerCase() !== from.toLowerCase()) {
       throw new Error(`token ${tokenId} not owned by ${from}`);
     }
     this.owners.set(tokenId, to);
+    return {};
   }
 
   async ownerOf(tokenId: number): Promise<`0x${string}` | null> {

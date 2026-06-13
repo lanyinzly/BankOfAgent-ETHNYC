@@ -171,6 +171,8 @@ accounts so the optional onchain mode works out of the box against a local node.
 | `BOA_QUOTA_USDC` | `5` | usage allowance attached to each membership |
 | `BOA_PRICE_INPUT_PER_1K` | `0.0005` | USDC per 1k input tokens |
 | `BOA_PRICE_OUTPUT_PER_1K` | `0.0015` | USDC per 1k output tokens |
+| `RPC_URL` | by chainId | onchain RPC (auto: 84532→Base Sepolia, 11155111→Ethereum Sepolia) |
+| `AGENT_A_PRIVATE_KEY` / `AGENT_B_PRIVATE_KEY` | (public anvil keys) | fresh funded keys for the demo agents in onchain mode; address is derived from the key |
 | `UPSTREAM_BASE_URL` | — | OpenAI-compatible upstream (e.g. a [new-api](https://github.com/QuantumNous/new-api) instance). Unset → stub echo |
 | `UPSTREAM_API_KEY` | — | bearer for the upstream |
 | `BOA_BASE_PREMIUM` / `BOA_MINT_FEE_PERCENT` / `BOA_BURN_FEE_PERCENT` | from `deployments.json` or DeployBoA defaults | FOAMM curve params |
@@ -178,14 +180,24 @@ accounts so the optional onchain mode works out of the box against a local node.
 ### Onchain mode
 
 ```bash
-# after deploying (see ../contracts/README.md) so contracts/deployments.json exists:
-CHAIN_MODE=onchain BASE_SEPOLIA_RPC_URL=https://sepolia.base.org node ../relay
+# after deploying (see ../contracts/README.md) so contracts/deployments.json exists.
+# Supply FRESH funded keys for the two demo agents — the default keys are public
+# anvil keys, and on a public testnet any ETH sent to them is swept by bots.
+CHAIN_MODE=onchain \
+  AGENT_A_PRIVATE_KEY=0x<funded> \
+  AGENT_B_PRIVATE_KEY=0x<funded> \
+  node ../relay      # RPC auto-selected from deployments.json chainId; override with RPC_URL
 ```
 
 In `onchain` mode the relay reads `../contracts/deployments.json` for the market
-addresses and sends real `wrap`/`unwrap`/`transferFrom` transactions; each acting
-agent must have a funded key in the identity rail. FOAMM prices are read live from
-the on-chain `getWrapOracle`. The off-chain quota ledger is identical in both modes.
+addresses and sends real `wrap`/`unwrap`/`transferFrom` transactions; the responses
+include the on-chain `txHash`. Each acting agent must have a funded key (above).
+FOAMM prices are read live from the on-chain `getWrapOracle`. The off-chain quota
+ledger is identical in both modes.
+
+> This exact flow was run live on **Ethereum Sepolia** (chainId 11155111): a real
+> `wrap` (curve moved up) → transfer → `unwrap` (refund) → second agent called
+> successfully. See `../contracts/README.md` for the deployed addresses.
 
 > **Relation to new-api:** this relay is a deliberately lightweight, dependency-free
 > reimplementation of the new-api gateway idea (bearer auth + usage metering +

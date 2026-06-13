@@ -109,6 +109,7 @@ async function main() {
   kv("priceAfter", c.green(`${buy1.json.priceAfter} ${buy1.json.unit}  ⬆ curve moved`));
   kv("pricePaid", `${buy1.json.pricePaid} ${buy1.json.unit}`);
   kv("quotaGranted", `${buy1.json.quotaUsdc} USDC`);
+  if (buy1.json.txHash) kv("txHash", buy1.json.txHash);
   const tokenId = buy1.json.tokenId;
 
   price = (await api("GET", `/boa/price`)).json;
@@ -148,6 +149,7 @@ async function main() {
   const xfer = await api("POST", "/boa/membership/transfer", { body: { tokenId, from: AGENT_A.ens, to: AGENT_B.ens } });
   kv("tokenId", xfer.json.tokenId);
   kv("from -> to", `${xfer.json.from}  →  ${xfer.json.to}`);
+  if (xfer.json.txHash) kv("txHash", xfer.json.txHash);
 
   // before redeem: can B already call? (it owns the voucher now)
   // redeem voucher into quota
@@ -156,6 +158,7 @@ async function main() {
   kv("tokenId burned", redeem.json.tokenId);
   kv("refund", `${redeem.json.refund} ${redeem.json.unit}`);
   kv("quotaCredited", c.green(`${redeem.json.quotaCreditedUsdc} USDC  → standalone quota`));
+  if (redeem.json.txHash) kv("txHash", redeem.json.txHash);
 
   price = (await api("GET", `/boa/price`)).json;
   kv("price.now sold", `${price.sold}  ${c.dim("(voucher burned, supply back down)")}`);

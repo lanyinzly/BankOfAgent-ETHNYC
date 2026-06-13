@@ -99,7 +99,7 @@ export interface ChainAdapter {
   price(): Promise<PriceInfo>;
   wrap(toAddress: `0x${string}`): Promise<WrapResult>;
   unwrap(ownerAddress: `0x${string}`, tokenId: number): Promise<UnwrapResult>;
-  transfer(from: `0x${string}`, to: `0x${string}`, tokenId: number): Promise<void>;
+  transfer(from: `0x${string}`, to: `0x${string}`, tokenId: number): Promise<{ txHash?: string }>;
   ownerOf(tokenId: number): Promise<`0x${string}` | null>;
   totalSupply(): Promise<number>;
 }

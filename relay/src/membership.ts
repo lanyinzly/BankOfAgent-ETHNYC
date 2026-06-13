@@ -80,15 +80,16 @@ export class MembershipService {
     };
   }
 
-  async transfer(tokenId: number, from: Agent, to: Agent): Promise<void> {
+  async transfer(tokenId: number, from: Agent, to: Agent): Promise<{ txHash?: string }> {
     const v = this.vouchers.get(tokenId);
     if (!v) throw new Error(`voucher ${tokenId} not found in ledger`);
     if (v.owner !== from.address.toLowerCase()) {
       throw new Error(`voucher ${tokenId} not owned by ${from.ens}`);
     }
-    await this.adapter.transfer(from.address, to.address, tokenId);
+    const res = await this.adapter.transfer(from.address, to.address, tokenId);
     v.owner = to.address.toLowerCase();
     v.ens = to.ens;
+    return res;
   }
 
   vouchersOf(address: string): VoucherRecord[] {

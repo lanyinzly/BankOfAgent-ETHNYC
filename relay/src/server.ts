@@ -207,8 +207,8 @@ export function buildApp(cfg: Config) {
         res.status(400).json({ error: { message: "tokenId required", type: "bad_request" } });
         return;
       }
-      await membership.transfer(tokenId, from, to);
-      res.json({ tokenId, from: from.ens, to: to.ens });
+      const r = await membership.transfer(tokenId, from, to);
+      res.json({ tokenId, from: from.ens, to: to.ens, txHash: r.txHash ?? null });
     }),
   );
 

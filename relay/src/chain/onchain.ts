@@ -261,7 +261,7 @@ export class OnchainFoamm implements ChainAdapter {
     return { tokenId, refund: formatEther(premium - fee), txHash: hash };
   }
 
-  async transfer(from: `0x${string}`, to: `0x${string}`, tokenId: number): Promise<void> {
+  async transfer(from: `0x${string}`, to: `0x${string}`, tokenId: number): Promise<{ txHash?: string }> {
     const wallet = this.wallet(from);
     const hash = await wallet.writeContract({
       address: this.cfg.app as Hex,
@@ -272,6 +272,7 @@ export class OnchainFoamm implements ChainAdapter {
       chain: this.chain,
     });
     await this.pub.waitForTransactionReceipt({ hash });
+    return { txHash: hash };
   }
 
   async ownerOf(tokenId: number): Promise<`0x${string}` | null> {
