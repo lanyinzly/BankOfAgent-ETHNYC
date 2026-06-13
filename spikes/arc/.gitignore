@@ -1,0 +1,9 @@
+# Secrets — NEVER commit private keys / mnemonics
+.env
+.env.*
+!.env.example
+
+# deps & build
+node_modules/
+dist/
+*.log
