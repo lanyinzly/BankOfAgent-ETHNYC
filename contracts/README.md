@@ -8,6 +8,29 @@ The three contracts are **vendored byte-for-byte** from the sibling repo
 [`lanyinzly/EIP7527`](https://github.com/lanyinzly/EIP7527) (only an SPDX header
 added) so this directory builds and deploys self-contained.
 
+## Live deployment
+
+A BoA membership market is deployed and verified live on **Ethereum Sepolia
+(chainId 11155111)** — recorded in [`deployments.json`](./deployments.json) and
+read by the relay in `onchain` mode.
+
+| contract | address |
+| --- | --- |
+| Factory | [`0x7f22C05da2F4C9063477dA14101D2c56D510785E`](https://sepolia.etherscan.io/address/0x7f22C05da2F4C9063477dA14101D2c56D510785E) |
+| Agency impl | [`0x65c57Ebc829D64da70bb067d68250Eeee21C297E`](https://sepolia.etherscan.io/address/0x65c57Ebc829D64da70bb067d68250Eeee21C297E) |
+| App impl | [`0xD71B89C4b00D80763e47D3d4dEac649e936e3F5c`](https://sepolia.etherscan.io/address/0xD71B89C4b00D80763e47D3d4dEac649e936e3F5c) |
+| **Market — Agency** (wrap/unwrap) | [`0x47d5b439FdC1Bb59ee1A6Ae7bfDED8e246ee33EE`](https://sepolia.etherscan.io/address/0x47d5b439FdC1Bb59ee1A6Ae7bfDED8e246ee33EE) |
+| **Market — App** (ERC-721 voucher) | [`0xc72e56656266dA245276336DCA0c861F0A2739B4`](https://sepolia.etherscan.io/address/0xc72e56656266dA245276336DCA0c861F0A2739B4) |
+
+The FOAMM was exercised on-chain (curve moves on buy, refund on redeem):
+
+- `wrap`   → [`0x5ec10baf456105258687c10a04006d792cd6a50a8a8e6c0d853a943bec472931`](https://sepolia.etherscan.io/tx/0x5ec10baf456105258687c10a04006d792cd6a50a8a8e6c0d853a943bec472931)
+- `unwrap` → [`0x5b3d27aec7ffaf638559bdf17c8db986a20bd0d763531996ff256bc8e15cfec0`](https://sepolia.etherscan.io/tx/0x5b3d27aec7ffaf638559bdf17c8db986a20bd0d763531996ff256bc8e15cfec0)
+
+> The deploy script and relay are **chain-agnostic** — Base Sepolia (the design
+> target, chainId 84532) is supported identically via `make deploy-base`; the live
+> deployment above used Ethereum Sepolia for funding convenience.
+
 ## FOAMM curve
 
 ```
@@ -79,6 +102,15 @@ forge script script/DeployBoA.s.sol:DeployBoA \
   --rpc-url base_sepolia --private-key $PRIVATE_KEY --broadcast --verify
 ```
 
+### 2c. Deploy to Ethereum Sepolia
+
+Same script, different chain (this is what the live deployment above uses):
+
+```bash
+export PRIVATE_KEY=0x...      # a FUNDED Ethereum Sepolia key
+make deploy-sepolia           # ETH_SEPOLIA_RPC_URL defaults to a public node
+```
+
 ## `deployments.json`
 
 Written by the deploy script and consumed by the relay (`CHAIN_MODE=onchain`):
@@ -104,8 +136,9 @@ Written by the deploy script and consumed by the relay (`CHAIN_MODE=onchain`):
 ```
 
 > The committed `deployments.json` records the **most recent deploy**. Its `chainId`
-> field tells you which network it targets (`84532` = Base Sepolia, `31337` = local
-> anvil). Re-run `make deploy-base` to refresh it with live Base Sepolia addresses.
+> field tells you which network it targets (`11155111` = Ethereum Sepolia — current,
+> `84532` = Base Sepolia, `31337` = local anvil). Re-run `make deploy-sepolia` /
+> `make deploy-base` to refresh it.
 
 ## Layout
 

@@ -67,6 +67,19 @@ function numEnv(name: string, dflt: number): number {
   return Number.isFinite(n) ? n : dflt;
 }
 
+// Sensible public default RPC per testnet, so onchain mode works against whatever
+// chain deployments.json points at without extra env. Override with RPC_URL.
+function defaultRpcForChain(chainId?: number): string {
+  switch (chainId) {
+    case 84532:
+      return "https://sepolia.base.org"; // Base Sepolia
+    case 11155111:
+      return "https://ethereum-sepolia-rpc.publicnode.com"; // Ethereum Sepolia
+    default:
+      return "https://sepolia.base.org";
+  }
+}
+
 export function loadConfig(): Config {
   const deployments = loadDeployments();
   const dm = deployments?.market ?? {};
@@ -95,7 +108,8 @@ export function loadConfig(): Config {
   return {
     port: numEnv("PORT", 8787),
     chainMode: chainMode === "onchain" ? "onchain" : "memory",
-    rpcUrl: env("BASE_SEPOLIA_RPC_URL") ?? env("RPC_URL") ?? "https://sepolia.base.org",
+    rpcUrl:
+      env("RPC_URL") ?? env("BASE_SEPOLIA_RPC_URL") ?? defaultRpcForChain(deployments?.chainId),
     routerPrivateKey,
     market,
     quotaUsdcPerMembership: numEnv("BOA_QUOTA_USDC", 5),
