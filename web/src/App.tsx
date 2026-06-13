@@ -212,7 +212,7 @@ export default function App() {
       {/* ── header ── */}
       <header className="hdr">
         <div className="hdr__brand">
-          <span className="hdr__logo">🏦</span>
+          <span className="hdr__logo" aria-hidden="true" />
           <div>
             <h1 className="hdr__title">Bank of Agent</h1>
             <p className="hdr__tag">The forward market for AI compute</p>
@@ -250,7 +250,7 @@ export default function App() {
 
       {error && (
         <div className="toast" role="alert" onClick={() => setError(null)}>
-          ⚠ {error} <span className="toast__x">dismiss ✕</span>
+          [ERROR] {error} <span className="toast__x">DISMISS</span>
         </div>
       )}
 

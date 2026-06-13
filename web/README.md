@@ -82,6 +82,52 @@ Leave the variable **unset or empty** to go back to the mock.
 
 ---
 
+## Deploy to Vercel (frontend)
+
+The frontend is a static Vite SPA, so it deploys to Vercel with **no server** —
+the mock relay runs entirely in the browser, so a default deploy is a fully
+self-contained, shareable demo. `web/vercel.json` is already included (Vite
+preset + SPA fallback).
+
+**Option A — CLI** (run from this `web/` directory):
+
+```bash
+npx vercel --prod        # first run links/creates the project, then deploys
+```
+
+**Option B — Git import:** in the Vercel dashboard, import the repo and set
+**Root Directory = `web`**. Framework auto-detects as Vite (build `vite build`,
+output `dist`).
+
+### Point the deployment at a real relay
+
+The relay address is configured **only** through the `NEXT_PUBLIC_RELAY_URL`
+environment variable — set it in **Vercel → Project → Settings → Environment
+Variables**, then redeploy. No code changes.
+
+```
+NEXT_PUBLIC_RELAY_URL = https://<your-relay>
+```
+
+The value can be **any** reachable relay URL, for example:
+
+- a **local tunnel** to a relay running on your machine — e.g.
+  `cloudflared tunnel --url http://localhost:8080` or `ngrok http 8080`, then
+  paste the printed `https://…` URL; or
+- a hosted relay, e.g. a **Railway** deployment URL
+  (`https://<service>.up.railway.app`).
+
+- **Leave the variable unset** → the deployment runs in self-contained **mock**
+  mode (great for sharing the demo).
+- **Set it** → the deployment becomes **LIVE** and every call goes straight to
+  that relay (which must send CORS + `Access-Control-Expose-Headers: x-boa-usage`,
+  see above).
+
+> Env vars are read at **build time**, so after changing `NEXT_PUBLIC_RELAY_URL`
+> on Vercel you must trigger a redeploy for it to take effect.
+
+---
+
 ## Relay interface contract v0
 
 The mock (`src/mocks/`) and the live relay both implement exactly this:

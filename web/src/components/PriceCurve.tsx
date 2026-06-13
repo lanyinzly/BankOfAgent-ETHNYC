@@ -69,7 +69,7 @@ export default function PriceCurve({ price, lastBuy }: Props) {
   const gridY = Array.from({ length: ticks + 1 }, (_, i) => yMin + ((yMax - yMin) * i) / ticks);
 
   return (
-    <div className="curve">
+    <div className={`curve ${bump ? 'curve--up' : ''}`}>
       <div className="curve__head">
         <div>
           <div className="curve__label">FOAMM forward premium · {price?.market ?? '—'}</div>
@@ -87,24 +87,6 @@ export default function PriceCurve({ price, lastBuy }: Props) {
       </div>
 
       <svg className="curve__svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="FOAMM forward premium curve">
-        <defs>
-          <linearGradient id="boaArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(34,211,238,0.34)" />
-            <stop offset="100%" stopColor="rgba(34,211,238,0.02)" />
-          </linearGradient>
-          <linearGradient id="boaLine" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#22d3ee" />
-            <stop offset="100%" stopColor="#a78bfa" />
-          </linearGradient>
-          <filter id="boaGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="4" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
         {/* grid + y labels */}
         {gridY.map((gy, i) => (
           <g key={i}>
@@ -122,20 +104,21 @@ export default function PriceCurve({ price, lastBuy }: Props) {
         ))}
 
         {/* claimed-capacity area (grows on each buy) */}
-        <path className="curve__area" d={areaPath} fill="url(#boaArea)" />
+        <path className="curve__area" d={areaPath} />
         {/* the forward curve */}
-        <path className="curve__line" d={linePath} fill="none" stroke="url(#boaLine)" strokeWidth={3} />
+        <path className="curve__line" d={linePath} fill="none" />
 
-        {/* "you are here" guide + next-fill ghost */}
+        {/* crosshair on the live point — vertical + horizontal hairlines */}
         <line className="curve__guide" x1={markerX} y1={markerY} x2={markerX} y2={H - PAD.bottom} />
+        <line className="curve__guide" x1={PAD.left} y1={markerY} x2={markerX} y2={markerY} />
         {sold < maxSupply && (
           <circle className="curve__ghost" cx={px(sold + 1)} cy={py(premiumAt(sold + 1, basePremium))} r={5} />
         )}
 
         {/* live marker — transitions when sold changes */}
         <g className="curve__markerG" style={{ transform: `translate(${markerX}px, ${markerY}px)` }}>
-          <circle r={9} className="curve__markerHalo" filter="url(#boaGlow)" />
-          <circle r={5.5} className="curve__marker" />
+          <circle r={10} className="curve__markerHalo" />
+          <circle r={4.5} className="curve__marker" />
         </g>
       </svg>
 
