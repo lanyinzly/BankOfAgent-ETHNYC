@@ -103,6 +103,30 @@ The actually-active controller was found on-chain by reading recent
 `SEPOLIA_CONTROLLER=0x…` overrides it if the active controller rotates again.
 (`writeread:sepolia` is a lighter read-only preflight / owned-parent variant.)
 
+## Live demo runbook (for judges)
+
+Mint a brand-new ENS name on stage — let a judge pick the word:
+
+```bash
+cd spikes/ens
+npm run demo "ETHGlobal NY"     # → mints ethglobal-ny-<rand>.eth + agent-a.<…> + boa.usage
+```
+
+One run = 4 real Sepolia txs (~50–70s; talk while they confirm):
+1. **register** → the `.eth` name is **minted on-chain** (an NFT of ownership; you own it)
+2. **subname** → `agent-a.<name>.eth` becomes the agent's identity (free, just gas)
+3. **setText** → the agent's `boa.usage` digest is written to a text record
+4. **read-back** → resolved from ENS via the Universal Resolver — proof it's on-chain
+
+Then drop the printed links in a browser to show it's live:
+- `https://sepolia.app.ens.domains/agent-a.<name>.eth` (records visible in the UI)
+- the Etherscan `register` tx link
+
+**Pre-demo checklist:** funded key in `.sepolia-key` (balance covers ~25+ mints);
+`npm install` done; one rehearsal run; conference wifi can be flaky → if Sepolia
+stalls, fall back instantly to `npm run spike` (local, real ENS contracts, no
+network) or `npm run fallback` (static map). See below.
+
 ## Fallback — static identity map (demo insurance)
 
 If ENS / an RPC is unreachable mid-demo, `identity-map.json` mirrors the same
