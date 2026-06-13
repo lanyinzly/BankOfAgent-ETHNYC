@@ -85,21 +85,48 @@ AFTER** with deltas, and a `PASS`/`FAIL` verdict. One command does the whole thi
 | Base Sepolia RPC reachable, chainId `84532` | **PASS** (verified live) |
 | Base Sepolia USDC contract reads | **PASS** (verified live) |
 | One-command transfer script (connect → read → send → verify) | **PASS** — runs end-to-end; on an unfunded wallet it correctly reports `BLOCKED` and prints the faucet + address |
-| **Funded 1-USDC transfer with on-chain `A↓ / B↑` + tx hash** | **PENDING FUNDING** — see below |
+| **Funded 1-USDC transfer on Arc — on-chain `A↓ / B↑` + tx hash** | **PASS** ✅ (executed live 2026-06-13, see below) |
 
-**Why PENDING and not done in this run:** the actual send needs wallet A funded, and
-Circle's faucet is gated behind either a **reCAPTCHA web step** (human) or the
-**`POST /v1/faucet/drips` API** (needs a Circle API key). Neither is available to an
-unattended agent in this environment, so no real drip could be performed here. The
-transfer path itself is fully wired and verified up to that point.
+### Actual run — Arc Testnet (2026-06-13)
 
-**One step to flip this to full green:**
-1. Open https://faucet.circle.com, select **Arc Testnet**, paste wallet A's address
-   (printed by `npm run gen`), request 20 USDC.
-2. Run `npm run arc`. It will print the tx hash and `A↓ / B↑`.
+```
+$ npm run arc
+================ Arc Testnet ================
+chainId:   5042002 (expected 5042002) ✓
+USDC:      0x3600000000000000000000000000000000000000  (USDC, 6 decimals)
+Wallet A (sender):    0xd1EDb3Cd774C427e1A5045a7365873ed42f86791
+Wallet B (recipient): 0xc6C30Aee87B96b5B2fC85125c7cE25565873608D
+
+----- balances BEFORE -----
+A: 20.0 USDC
+B: 0.0 USDC
+
+Sending 1 USDC: A -> B ...
+tx hash:  0x46d80dbe0a3cfb22260adb6679e395b13cfad84405f537818ba40f214935ef68
+mined:    block 46925940, status=success ✓
+
+----- balances AFTER -----
+A: 18.99852 USDC  (delta -1.00148)
+B: 1.0 USDC  (delta +1.0)
+
+RESULT: PASS ✅ — 1 USDC moved A -> B (A decreased, B increased)
+```
+
+- **tx:** https://testnet.arcscan.app/tx/0x46d80dbe0a3cfb22260adb6679e395b13cfad84405f537818ba40f214935ef68
+- **Independently confirmed via raw RPC** (not the script): `balanceOf(B)` = `0xf4240` =
+  `1000000` = **1.0 USDC**; receipt `status` = `0x1` (success), block `46925940`.
+- **Note A's delta is `-1.00148`, not `-1.0`:** the extra `0.00148` is the **gas, paid in
+  USDC**. That single-asset property is exactly what makes Arc ideal for nanopayments —
+  a payment carries its own gas, no separate ETH needed.
+
+### Fallback (Base Sepolia) — not needed this run
+Arc passed, so the fallback wasn't executed live. The script is identical (`npm run
+base`) and verified reachable: RPC up, chainId `84532`, USDC contract reads confirmed.
+To run it, fund wallet A with both test USDC **and** test ETH (gas). Status: **READY**
+(drop-in if Arc is down).
 
 ### Go / no-go verdict
-**GO (pending a single faucet drip).** The Arc settlement rail is **reachable and the
-USDC transfer path is fully implemented and verified** end-to-end except for the
-faucet-gated funding step. The Base Sepolia fallback is equally ready as a drop-in if
-Arc is unavailable. Nothing structural blocks moving USDC on Arc.
+**GO ✅.** The Arc settlement rail is proven: 1 USDC moved A→B on-chain with a confirmed
+tx hash and verified `A↓ / B↑` balance change, gas paid in USDC. The Base Sepolia
+fallback is ready as a drop-in (standard USDC ERC-20 `transfer`) if Arc is ever
+unavailable.
