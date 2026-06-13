@@ -50,6 +50,13 @@ export class MembershipService {
     return this.standalone.get(addr.toLowerCase()) ?? 0;
   }
 
+  // Credit standalone quota directly (used for startup bootstrap so an external
+  // client can call without an explicit on-chain buy first).
+  creditStandalone(address: string, usdc: number): void {
+    const key = address.toLowerCase();
+    this.standalone.set(key, round6(this.std(key) + usdc));
+  }
+
   async buy(agent: Agent): Promise<BuyResult> {
     const res = await this.adapter.wrap(agent.address);
     this.vouchers.set(res.tokenId, {

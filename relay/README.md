@@ -204,10 +204,92 @@ ledger is identical in both modes.
 > OpenAI-compatible forwarding). To use a real new-api / QuantumNous deployment as
 > the model backend, point `UPSTREAM_BASE_URL`/`UPSTREAM_API_KEY` at it.
 
+## Deploy on Railway (always-on)
+
+Target topology: **one Railway project, two services**, each with its own
+auto-assigned public HTTPS URL. The shim talks to new-api over Railway **private
+networking**. All secrets live in **Railway Variables** — never in the repo.
+
+```
+            (public HTTPS)                         (public HTTPS)
+ external OpenAI client ──▶  shim  ──private──▶  new-api  ──▶  model providers
+   base_url = shim URL      (this repo,         (official      (OpenAI/Anthropic/…
+   key = agent key/ENS       relay/)             image,         configured in new-api)
+                             FOAMM + quota        SQLite@/data)
+                             + signed receipts
+```
+
+Repo artifacts: [`Dockerfile`](./Dockerfile) + [`railway.json`](./railway.json)
+(shim build/deploy + `/health` healthcheck). new-api uses its official image, so
+it needs no Dockerfile — just the settings below.
+
+### Service ① `new-api` (model gateway)
+
+1. **New Service → Docker Image** → `calciumion/new-api:latest`.
+2. **Add a Volume**, mount path `/data` (new-api keeps its **SQLite** DB + logs
+   there — no separate Postgres needed).
+3. **Variables:**
+   - `SESSION_SECRET` = a long random string (required for stable sessions)
+   - `CRYPTO_SECRET` = a long random string
+   - `TZ` = `UTC` (optional)
+   - (leave `SQL_DSN` unset → SQLite at `/data`)
+4. **Generate Domain** (public HTTPS).
+5. Open the new-api admin (default root login), add a **Channel** (your model
+   provider + that provider's **API key** — this key lives only in new-api), then
+   create a **Token**. That token is the shim's `UPSTREAM_API_KEY`.
+
+### Service ② `shim` (this repo, BoA relay)
+
+1. **New Service → GitHub Repo** → this repo. Set **Root Directory** to `relay`
+   (Railway then uses `relay/railway.json` → builds `relay/Dockerfile`).
+2. **Variables:**
+   - `UPSTREAM_BASE_URL` = `http://${{new-api.RAILWAY_PRIVATE_DOMAIN}}:${{new-api.PORT}}/v1`
+     — the New API internal address via private networking
+   - `UPSTREAM_API_KEY` = the new-api token from step ①.5  *(secret)*
+   - `ROUTER_PRIVATE_KEY` = the key that signs usage receipts  *(secret)*
+   - `BOA_BOOTSTRAP_QUOTA_USDC` = `5` — so an external client works with just an
+     agent key (no explicit on-chain buy first)
+   - contract addresses (informational in memory mode; required for onchain mode):
+     `BOA_AGENCY`, `BOA_APP`, `BOA_CHAIN_ID`
+   - optional onchain mode: `CHAIN_MODE=onchain`, `RPC_URL`,
+     `AGENT_A_PRIVATE_KEY`, `AGENT_B_PRIVATE_KEY` *(all secret)*
+3. **Generate Domain** (public HTTPS). Railway injects `PORT`; the shim binds it.
+
+> Do **not** commit any of: `ROUTER_PRIVATE_KEY`, `UPSTREAM_API_KEY`, model
+> provider keys, `PRIVATE_KEY` / `AGENT_*_PRIVATE_KEY`, `SESSION_SECRET`,
+> `CRYPTO_SECRET`. They are Railway Variables only.
+
+### DoD check — external OpenAI-compatible client
+
+Once both services are up, the shim URL is a drop-in OpenAI `base_url`:
+
+```bash
+curl -s https://<shim-domain>/v1/chat/completions \
+  -H "Authorization: Bearer boa-sk-agent-a" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}'
+```
+
+or from any OpenAI SDK:
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="https://<shim-domain>/v1", api_key="boa-sk-agent-a")
+client.chat.completions.create(model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "hello"}])
+```
+
+Returns an OpenAI-shaped completion plus the `x-boa-usage` header (signed receipt).
+With `UPSTREAM_*` set, the body is a real model response from new-api; unset, it
+is the stub echo. *(Verified locally: the container image builds, boots, and serves
+this exact call with HTTP 200 + a signed `x-boa-usage` receipt.)*
+
 ## Layout
 
 ```
 relay/
+  Dockerfile          production image (Node 22, no build step)
+  railway.json        Railway build/deploy + /health healthcheck
   index.ts            entry — `node relay` / `npm start`
   demo.ts             full closed-loop demo — `npm run demo`
   src/

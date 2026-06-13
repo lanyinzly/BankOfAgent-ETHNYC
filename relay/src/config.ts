@@ -35,6 +35,7 @@ export interface Config {
   market: MarketConfig;
   // economics
   quotaUsdcPerMembership: number; // metered-usage budget attached to each voucher
+  bootstrapQuotaUsdc: number; // pre-credit each known agent at startup (0 = off)
   priceInputPer1k: number; // USDC per 1k input tokens
   priceOutputPer1k: number; // USDC per 1k output tokens
   // upstream model (optional). If unset -> stub echo model.
@@ -95,7 +96,7 @@ export function loadConfig(): Config {
     mintFeePercent: BigInt(env("BOA_MINT_FEE_PERCENT") ?? dm.mintFeePercent ?? "100"),
     burnFeePercent: BigInt(env("BOA_BURN_FEE_PERCENT") ?? dm.burnFeePercent ?? "100"),
     maxSupply: numEnv("BOA_MAX_SUPPLY", 100),
-    chainId: deployments?.chainId,
+    chainId: env("BOA_CHAIN_ID") ? Number(env("BOA_CHAIN_ID")) : deployments?.chainId,
   };
 
   // Default router key is a well-known public anvil test key — fine for signing
@@ -109,10 +110,14 @@ export function loadConfig(): Config {
     port: numEnv("PORT", 8787),
     chainMode: chainMode === "onchain" ? "onchain" : "memory",
     rpcUrl:
-      env("RPC_URL") ?? env("BASE_SEPOLIA_RPC_URL") ?? defaultRpcForChain(deployments?.chainId),
+      env("RPC_URL") ?? env("BASE_SEPOLIA_RPC_URL") ?? defaultRpcForChain(market.chainId),
     routerPrivateKey,
     market,
     quotaUsdcPerMembership: numEnv("BOA_QUOTA_USDC", 5),
+    // Pre-credit every known agent this much standalone quota at startup. Lets an
+    // external OpenAI client hit /v1/chat/completions with just an agent key (no
+    // explicit buy first) — handy for the always-on Railway deploy. 0 = off.
+    bootstrapQuotaUsdc: numEnv("BOA_BOOTSTRAP_QUOTA_USDC", 0),
     priceInputPer1k: numEnv("BOA_PRICE_INPUT_PER_1K", 0.0005),
     priceOutputPer1k: numEnv("BOA_PRICE_OUTPUT_PER_1K", 0.0015),
     upstreamBaseUrl: env("UPSTREAM_BASE_URL") ?? null,

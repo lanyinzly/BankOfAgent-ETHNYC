@@ -22,6 +22,12 @@ export function buildApp(cfg: Config) {
   const membership = new MembershipService(adapter, cfg.quotaUsdcPerMembership);
   const upstream = new UpstreamModel(cfg.upstreamBaseUrl, cfg.upstreamApiKey);
 
+  // Optionally pre-credit known agents so an external OpenAI client works
+  // out-of-the-box (no explicit buy). Off by default; set on the always-on deploy.
+  if (cfg.bootstrapQuotaUsdc > 0) {
+    for (const a of identity.list()) membership.creditStandalone(a.address, cfg.bootstrapQuotaUsdc);
+  }
+
   const app = express();
   app.use(express.json({ limit: "2mb" }));
 
