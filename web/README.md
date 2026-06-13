@@ -99,29 +99,31 @@ npx vercel --prod        # first run links/creates the project, then deploys
 **Root Directory = `web`**. Framework auto-detects as Vite (build `vite build`,
 output `dist`).
 
-### Point the deployment at a real relay
+### Point the deployment at the relay shim on Railway
 
-The relay address is configured **only** through the `NEXT_PUBLIC_RELAY_URL`
-environment variable — set it in **Vercel → Project → Settings → Environment
-Variables**, then redeploy. No code changes.
+In production the frontend talks to the **relay shim, deployed on Railway**. Point
+the Vercel deployment at the shim's **public Railway URL** through the
+`NEXT_PUBLIC_RELAY_URL` environment variable — set it in **Vercel → Project →
+Settings → Environment Variables**, then redeploy. No code changes.
 
 ```
-NEXT_PUBLIC_RELAY_URL = https://<your-relay>
+NEXT_PUBLIC_RELAY_URL = https://<your-shim>.up.railway.app
 ```
 
-The value can be **any** reachable relay URL, for example:
+This is the standard setup: **Vercel (static frontend) → Railway (relay shim) →
+models / contracts**. The shim's public URL is shown in the Railway dashboard
+(Service → Settings → Networking → Public Domain).
 
-- a **local tunnel** to a relay running on your machine — e.g.
-  `cloudflared tunnel --url http://localhost:8080` or `ngrok http 8080`, then
-  paste the printed `https://…` URL; or
-- a hosted relay, e.g. a **Railway** deployment URL
-  (`https://<service>.up.railway.app`).
+- **Set it to the Railway shim URL** → the deployment becomes **LIVE** and every
+  call goes straight to the shim (`<URL>/v1/...`, `<URL>/boa/...`). The shim must
+  send CORS for the Vercel origin and
+  `Access-Control-Expose-Headers: x-boa-usage` (see above).
+- **Leave it unset** → the deployment falls back to the self-contained in-browser
+  **mock** (great for sharing the demo without any backend).
 
-- **Leave the variable unset** → the deployment runs in self-contained **mock**
-  mode (great for sharing the demo).
-- **Set it** → the deployment becomes **LIVE** and every call goes straight to
-  that relay (which must send CORS + `Access-Control-Expose-Headers: x-boa-usage`,
-  see above).
+> For local development you can equally point `NEXT_PUBLIC_RELAY_URL` at a tunnel
+> to a shim running on your machine (e.g. `cloudflared tunnel --url
+> http://localhost:8080` or `ngrok http 8080`) instead of the Railway URL.
 
 > Env vars are read at **build time**, so after changing `NEXT_PUBLIC_RELAY_URL`
 > on Vercel you must trigger a redeploy for it to take effect.
