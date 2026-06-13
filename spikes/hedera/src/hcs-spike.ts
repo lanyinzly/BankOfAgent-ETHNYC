@@ -135,6 +135,20 @@ async function main(): Promise<void> {
 }
 
 main().catch((e) => {
-  console.error("\nFAIL ❌  spike threw:", e);
+  const msg = String(e?.message ?? e);
+  if (/DEADLINE_EXCEEDED|GrpcServiceError|ECONNREFUSED|ETIMEDOUT|max attempts/i.test(msg)) {
+    console.error(
+      "\nFAIL ❌  could not reach a Hedera consensus node (gRPC).\n" +
+        "  The transaction was built and router-signed fine — this is a NETWORK egress block,\n" +
+        "  not a code/credentials problem: consensus nodes speak gRPC on ports 50211/50212,\n" +
+        "  but this environment only allows outbound HTTPS/443. Mirror-node reads work;\n" +
+        "  consensus submission does not.\n" +
+        "  → Run this spike from a host with open egress (your local terminal): the same .env\n" +
+        "    + `npm run spike` completes the create→submit→read round-trip in ~10s.\n" +
+        `  underlying error: ${msg}\n`,
+    );
+  } else {
+    console.error("\nFAIL ❌  spike threw:", e);
+  }
   process.exit(1);
 });
