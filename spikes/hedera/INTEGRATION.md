@@ -4,6 +4,19 @@ Built for the **Hedera "AI & Agentic Payments"** prize. This doc gives you (1) t
 narrative to land, (2) a backend API service to deploy on Railway, and (3) a paste-ready
 prompt + code to integrate a **live, visual** demo into your existing frontend.
 
+### Status — built & verified live on Hedera testnet (2026-06-14)
+
+The API (`src/server.ts`) was run locally and exercised end-to-end. Each `emit`:
+- **paid a real HBAR micropayment** operator `0.0.9186016` → payee `0.0.9228118`
+  (mirror node confirmed `CRYPTOTRANSFER` / `SUCCESS`, `+0.01 ℏ`; payee balance grew to
+  `0.02 ℏ` after 2 calls);
+- **discovered the price upward** across calls: `1.0000 → 1.0007 → 1.0014`;
+- **signed + recorded** the receipt on HCS (`signatureValid: true`, `bytesMatch: true`),
+  with `settlement_tx` set to the live Hedera transfer id.
+
+So the full agentic-payment loop — **price → pay on Hedera → sign → audit on Hedera** —
+is working; the section below is how to wire it to your frontend and deploy on Railway.
+
 ---
 
 ## 1. Narrative — why BoA is *the* agentic-payments use case for Hedera
@@ -110,6 +123,11 @@ npm i -D @types/express @types/cors
 ```
 
 ### A2. Server — `spikes/hedera/src/server.ts`
+
+> **This file is already committed in the repo and is the canonical implementation.**
+> It includes everything below **plus the real HBAR settlement leg** (§6) wired into
+> every emit, and an extra SSE `settle` event. The block below is the readable reference;
+> deploy the committed file. (Verified live — see "Status" at the top.)
 
 ```ts
 import "dotenv/config";
@@ -327,6 +345,8 @@ app.listen(PORT, () => console.log(`BoA Hedera API on :${PORT}`));
 > - On `price`: animate a **price ticker** `price_before → price_after` with the Δ and an
 >   up-arrow — this is the headline. Also append `price_after` to a **sparkline** labeled
 >   "forward curve (emitted by the market)".
+> - On `settle`: show **"paid `<amountHbar>` ℏ on Hedera"** with a link to the payment tx
+>   (`hashscanUrl`) — this is the real on-chain micropayment.
 > - On `sign`: show `router_signature` (truncated) + **"signed by router `<routerAddress>`"**.
 > - On `submit`: show the **consensus sequence #** prominently.
 > - On `done`: show **"on-chain ✓"**, **"signature verified ✓"** (when `signatureValid`),
@@ -347,7 +367,7 @@ app.listen(PORT, () => console.log(`BoA Hedera API on :${PORT}`));
 const API = import.meta.env.VITE_BOA_HEDERA_API; // e.g. https://boa-hedera.up.railway.app
 
 export type EmitHandlers = {
-  onPrice?: (d: any) => void; onSign?: (d: any) => void; onSubmit?: (d: any) => void;
+  onPrice?: (d: any) => void; onSettle?: (d: any) => void; onSign?: (d: any) => void; onSubmit?: (d: any) => void;
   onVerifyStart?: (d: any) => void; onDone: (d: any) => void; onError: (msg: string) => void;
 };
 export function emitReceiptStream(overrides: Record<string, string> = {}, h: EmitHandlers) {
@@ -355,6 +375,7 @@ export function emitReceiptStream(overrides: Record<string, string> = {}, h: Emi
   const es = new EventSource(`${API}/api/receipts/emit/stream${qs ? `?${qs}` : ""}`);
   const J = (e: Event) => JSON.parse((e as MessageEvent).data);
   es.addEventListener("price",        (e) => h.onPrice?.(J(e)));
+  es.addEventListener("settle",       (e) => h.onSettle?.(J(e)));
   es.addEventListener("sign",         (e) => h.onSign?.(J(e)));
   es.addEventListener("submit",       (e) => h.onSubmit?.(J(e)));
   es.addEventListener("verify_start", (e) => h.onVerifyStart?.(J(e)));
@@ -489,15 +510,21 @@ VITE_BOA_HEDERA_API=https://<your-railway-service>.up.railway.app
 
 ---
 
-## 6. (Recommended for qualification strength) make the payment leg a *real* Hedera transfer
+## 6. The HBAR settlement leg — **built-in & verified**
 
-The prize centers on **payments on Hedera**. The HCS write already qualifies as a paid
-financial operation, but you can make settlement an explicit on-chain value movement: a
-sub-cent **HBAR micropayment per agent call** (or an HTS transfer of a USDC-equivalent),
-so `settlement_tx` points to a real Hedera transaction. This is exactly the prize's
-"micropayment streaming / machine-speed settlement."
+The prize centers on **payments on Hedera**, so settlement is an explicit on-chain value
+movement: a sub-cent **HBAR micropayment per agent call**, operator → payee, whose tx id
+becomes the receipt's `settlement_tx`. This is exactly the prize's "micropayment
+streaming / machine-speed settlement."
 
-Add to `server.ts`:
+**This is already wired into the committed `src/server.ts`** (it runs on every emit when
+`HEDERA_PAYEE_ID` is set) and verified live (see Status at top). Env: set
+`HEDERA_PAYEE_ID` (a second testnet account) and optionally `HEDERA_SETTLE_HBAR`
+(default `0.01`). To create a payee account programmatically, run a one-off
+`AccountCreateTransaction` from the funded operator. The SSE stream emits a **`settle`**
+event — `{ txId, hashscanUrl, amountHbar }` — so the frontend can show the payment with
+its own HashScan link (`https://hashscan.io/testnet/transaction/<id>`). Surface that as a
+second link next to the HCS one. The core logic:
 
 ```ts
 import { TransferTransaction, Hbar } from "@hashgraph/sdk";

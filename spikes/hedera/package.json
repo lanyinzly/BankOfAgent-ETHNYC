@@ -5,6 +5,8 @@
   "description": "Bank of Agent — Sprint 0 spike: Hedera HCS proof rail for router-signed usage receipts",
   "type": "module",
   "scripts": {
+    "start": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "spike": "tsx src/hcs-spike.ts",
     "fallback": "tsx src/fallback.ts",
     "verify-read": "tsx src/verify-read-rail.ts",
@@ -12,10 +14,14 @@
   },
   "dependencies": {
     "@hashgraph/sdk": "^2.81.0",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.5",
-    "ethers": "^6.13.4"
+    "ethers": "^6.13.4",
+    "express": "^5.2.1"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.10.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
