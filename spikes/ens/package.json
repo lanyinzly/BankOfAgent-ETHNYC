@@ -13,6 +13,7 @@
     "demo": "tsx src/demo.ts",
     "fleet": "tsx src/fleet-demo.ts",
     "selfmint": "tsx src/self-mint-fleet-sepolia.ts",
+    "claimflow": "tsx src/claim-flow-sepolia.ts",
     "fallback": "tsx src/static-map.ts"
   },
   "license": "MIT",
