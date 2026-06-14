@@ -29,6 +29,16 @@ export async function startRelay(payTo: string, port = 0, host = "127.0.0.1"): P
     ethers.parseUnits(((tokens / 1000) * PRICE_PER_1K_TOKENS_USDC).toFixed(6), ARC.decimals);
 
   const server = http.createServer(async (req, res) => {
+    // CORS — allow browser callers (preflight + the x-payment header).
+    res.setHeader("access-control-allow-origin", "*");
+    res.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
+    res.setHeader("access-control-allow-headers", "content-type, x-payment");
+    res.setHeader("access-control-expose-headers", "x-payment-response");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204).end();
+      return;
+    }
+
     // Health check (Railway / uptime probes).
     if (req.method === "GET" && req.url?.startsWith("/health")) {
       res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" });
