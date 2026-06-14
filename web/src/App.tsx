@@ -1,0 +1,532 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AGENT_A, AGENT_B, MARKET_ID, RELAY_DISPLAY_URL, RELAY_URL, USING_MOCK } from './config';
+import { relay, RelayError } from './lib/relayClient';
+import { usd } from './lib/foamm';
+import type {
+  BuyResult,
+  ChatResult,
+  Identity,
+  PriceQuote,
+  RedeemResult,
+  TransferResult,
+  UsageReceipt,
+} from './types';
+import StepCard, { type StepStatus } from './components/StepCard';
+import UsageReceiptView from './components/UsageReceiptView';
+import ConnectAgent from './components/ConnectAgent';
+import Hero from './components/Hero';
+import Pillars from './components/Pillars';
+import Explainer from './components/Explainer';
+import Slides from './components/Slides';
+import Reveal from './components/Reveal';
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export default function App() {
+  const [online, setOnline] = useState<boolean | null>(null);
+  const [identityA, setIdentityA] = useState<Identity | null>(null);
+  const [identityB, setIdentityB] = useState<Identity | null>(null);
+
+  const [price, setPrice] = useState<PriceQuote | null>(null);
+  const [lastBuy, setLastBuy] = useState<BuyResult | null>(null);
+
+  const [voucherId, setVoucherId] = useState<number | null>(null);
+  const [voucherStatus, setVoucherStatus] = useState<'active' | 'transferred' | 'redeemed' | null>(null);
+
+  const [promptA, setPromptA] = useState('What is Bank of Agent, and why price compute on a forward curve?');
+  const [promptB, setPromptB] = useState('I just redeemed a voucher — confirm my quota and price 1M tokens forward.');
+  const [callA, setCallA] = useState<ChatResult | null>(null);
+  const [callB, setCallB] = useState<ChatResult | null>(null);
+
+  const [transferRes, setTransferRes] = useState<TransferResult | null>(null);
+  const [redeemRes, setRedeemRes] = useState<RedeemResult | null>(null);
+
+  const [ledger, setLedger] = useState<UsageReceipt[]>([]);
+  const [qty, setQty] = useState(1);
+
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [autoStep, setAutoStep] = useState<number | null>(null);
+  const [auto, setAuto] = useState(false);
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+  const run = useCallback(
+    async <T,>(tag: string, fn: () => Promise<T>): Promise<T | undefined> => {
+      setBusy(tag);
+      setError(null);
+      try {
+        return await fn();
+      } catch (e) {
+        const msg = e instanceof RelayError ? `relay ${e.status}: ${e.message}` : (e as Error).message;
+        setError(msg);
+        return undefined;
+      } finally {
+        setBusy(null);
+      }
+    },
+    [],
+  );
+
+  const refreshPrice = useCallback(async () => {
+    const p = await relay.price(MARKET_ID).catch(() => null);
+    if (p) setPrice(p);
+  }, []);
+
+  const refreshLedger = useCallback(async () => {
+    const [a, b] = await Promise.all([
+      relay.usage(AGENT_A).catch(() => [] as UsageReceipt[]),
+      relay.usage(AGENT_B).catch(() => [] as UsageReceipt[]),
+    ]);
+    setLedger([...a, ...b].sort((x, y) => y.timestamp - x.timestamp));
+  }, []);
+
+  // ── actions ──────────────────────────────────────────────────────────────--
+  const connect = useCallback(async () => {
+    const res = await run('connect', async () => {
+      const [a, b] = await Promise.all([relay.identity(AGENT_A), relay.identity(AGENT_B)]);
+      return { a, b };
+    });
+    if (res) {
+      setIdentityA(res.a);
+      setIdentityB(res.b);
+      setOnline(true);
+      await refreshPrice();
+      await refreshLedger();
+    } else {
+      setOnline(false);
+    }
+  }, [run, refreshPrice, refreshLedger]);
+
+  const doBuy = useCallback(
+    async (quantity: number) => {
+      const r = await run('buy', () => relay.buy({ agent: AGENT_A, market: MARKET_ID, quantity }));
+      if (r) {
+        setLastBuy(r);
+        setVoucherId(r.tokenId);
+        setVoucherStatus('active');
+        await refreshPrice();
+        await refreshLedger();
+      }
+      return r;
+    },
+    [run, refreshPrice, refreshLedger],
+  );
+
+  const doCall = useCallback(
+    async (agent: string, prompt: string, set: (c: ChatResult) => void) => {
+      const r = await run(`call:${agent}`, () => relay.chat(agent, prompt));
+      if (r) {
+        set(r);
+        await refreshLedger();
+      }
+      return r;
+    },
+    [run, refreshLedger],
+  );
+
+  // tokenId can be passed explicitly (the auto-loop does this to avoid relying on
+  // React state that updates mid-sequence); manual clicks fall back to state.
+  const doTransfer = useCallback(
+    async (tokenIdArg?: number) => {
+      const id = tokenIdArg ?? voucherId;
+      if (id == null) return;
+      const r = await run('transfer', () => relay.transfer({ tokenId: id, from: AGENT_A, to: AGENT_B }));
+      if (r) {
+        setTransferRes(r);
+        setVoucherStatus('transferred');
+      }
+      return r;
+    },
+    [run, voucherId],
+  );
+
+  const doRedeem = useCallback(
+    async (tokenIdArg?: number) => {
+      const id = tokenIdArg ?? voucherId;
+      if (id == null) return;
+      const r = await run('redeem', () => relay.redeem({ tokenId: id, agent: AGENT_B }));
+      if (r) {
+        setRedeemRes(r);
+        setVoucherStatus('redeemed');
+      }
+      return r;
+    },
+    [run, voucherId],
+  );
+
+  // ── auto-run the whole economic loop (live-demo insurance) ──────────────────
+  const runFullLoop = useCallback(async () => {
+    setAuto(true);
+    try {
+      if (!online) {
+        setAutoStep(1);
+        await connect();
+        await sleep(500);
+      }
+      setAutoStep(2);
+      await doBuy(2);
+      await sleep(750);
+      const lastBuyRes = await doBuy(2);
+      const loopVoucher = lastBuyRes?.tokenId;
+      await sleep(750);
+
+      setAutoStep(3);
+      await doCall(AGENT_A, promptA, setCallA);
+      await sleep(750);
+
+      setAutoStep(4);
+      await doTransfer(loopVoucher);
+      await sleep(750);
+
+      setAutoStep(5);
+      await doRedeem(loopVoucher);
+      await sleep(750);
+
+      setAutoStep(6);
+      await doCall(AGENT_B, promptB, setCallB);
+      await sleep(400);
+      setAutoStep(7);
+    } finally {
+      setAuto(false);
+    }
+  }, [online, connect, doBuy, doCall, doTransfer, doRedeem, promptA, promptB]);
+
+  // Fetch the opening price quote on mount so the curve is live immediately.
+  useEffect(() => {
+    refreshPrice();
+  }, [refreshPrice]);
+
+  // ── derived step status ─────────────────────────────────────────────────────
+  const statuses: Record<number, StepStatus> = useMemo(
+    () => ({
+      1: online ? 'done' : 'ready',
+      2: lastBuy ? 'done' : online ? 'ready' : 'locked',
+      3: callA ? 'done' : lastBuy ? 'ready' : 'locked',
+      4: transferRes ? 'done' : lastBuy ? 'ready' : 'locked',
+      5: redeemRes ? 'done' : transferRes ? 'ready' : 'locked',
+      6: callB ? 'done' : redeemRes ? 'ready' : 'locked',
+    }),
+    [online, lastBuy, callA, transferRes, redeemRes, callB],
+  );
+
+  const busyIs = (t: string) => busy === t;
+
+  return (
+    <div className="app" id="top">
+      {/* ── top nav ── */}
+      <nav className="nav">
+        <a className="nav__brand" href="#top">
+          <span className="nav__logo" aria-hidden="true" />
+          <span className="nav__name">BANK OF AGENT</span>
+        </a>
+        <div className="nav__links">
+          <a href="#about">About</a>
+          <a href="#loop">Demo</a>
+          <a href="#integrations">Integrations</a>
+        </div>
+        <div className={`pill ${USING_MOCK ? 'pill--mock' : 'pill--live'}`}>
+          <span className="pill__dot" />
+          {USING_MOCK ? 'MOCK RELAY' : 'LIVE RELAY'}
+          <span className="pill__url">{USING_MOCK ? RELAY_DISPLAY_URL : RELAY_URL}</span>
+        </div>
+      </nav>
+
+      <Hero
+        price={price}
+        lastBuy={lastBuy}
+        onRunLoop={runFullLoop}
+        auto={auto}
+        busy={busy != null}
+        autoStep={autoStep}
+      />
+
+      <Pillars />
+      <Explainer />
+
+      {/* ── the economic loop ── */}
+      <section className="loop" id="loop">
+        <Reveal>
+          <p className="section__eyebrow">The economic loop · live</p>
+          <h2 className="section__h">
+            A priced claim on future compute, changing hands before anyone consumes it.
+          </h2>
+          <p className="loop__intro">
+            Run it end to end against the in-browser mock relay — or press “Run the live demo”. Each
+            step is a real relay call; the FOAMM premium moves the moment capacity is claimed.
+          </p>
+        </Reveal>
+
+        {error && (
+          <div className="toast" role="alert" onClick={() => setError(null)}>
+            [ERROR] {error} <span className="toast__x">DISMISS</span>
+          </div>
+        )}
+
+        {/* the loop, step by step */}
+        <div className="grid">
+        {/* 1 · identity */}
+        <StepCard
+          n={1}
+          title="Agent identity"
+          status={statuses[1]}
+          highlight={autoStep === 1}
+          hint="Each agent is an ENS name — its account handle and public audit trail."
+        >
+          <div className="ids">
+            <IdRow role="Agent A" ens={AGENT_A} identity={online ? identityA : null} />
+            <IdRow role="Agent B" ens={AGENT_B} identity={online ? identityB : null} />
+          </div>
+          <button className="btn" onClick={connect} disabled={busyIs('connect')}>
+            {busyIs('connect') ? 'connecting…' : online ? 'reconnect to relay' : 'Connect to relay'}
+          </button>
+        </StepCard>
+
+        {/* 2 · buy membership */}
+        <StepCard
+          n={2}
+          title="Buy membership"
+          status={statuses[2]}
+          highlight={autoStep === 2}
+          hint="Wrap ERC-7527 vouchers. Every unit claimed moves the FOAMM premium up the curve."
+        >
+          <div className="qty">
+            <span className="qty__label">capacity units</span>
+            {[1, 5, 10].map((q) => (
+              <button
+                key={q}
+                className={`qty__btn ${qty === q ? 'qty__btn--on' : ''}`}
+                onClick={() => setQty(q)}
+                type="button"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+          <button
+            className="btn btn--primary"
+            onClick={() => doBuy(qty)}
+            disabled={!online || busyIs('buy')}
+          >
+            {busyIs('buy') ? 'buying…' : `Buy ${qty} as ${AGENT_A}`}
+          </button>
+          {lastBuy && (
+            <div className="result">
+              <div className="result__row">
+                <span>voucher{lastBuy.tokenIds && lastBuy.tokenIds.length > 1 ? 's' : ''}</span>
+                <b className="mono">
+                  #{lastBuy.tokenIds ? lastBuy.tokenIds.join(', #') : lastBuy.tokenId}
+                </b>
+              </div>
+              <div className="result__row">
+                <span>paid</span>
+                <b>{usd(lastBuy.pricePaid)}</b>
+              </div>
+              <div className="result__row result__row--move">
+                <span>premium</span>
+                <b>
+                  {usd(lastBuy.priceBefore)} <span className="arrow">→</span>{' '}
+                  <span className="up">{usd(lastBuy.priceAfter)} ▲</span>
+                </b>
+              </div>
+            </div>
+          )}
+        </StepCard>
+
+        {/* 3 · call as A */}
+        <StepCard
+          n={3}
+          title="Call a model"
+          status={statuses[3]}
+          highlight={autoStep === 3}
+          hint="One OpenAI-compatible call through the relay, metered against your quota."
+        >
+          <textarea
+            className="ta"
+            value={promptA}
+            onChange={(e) => setPromptA(e.target.value)}
+            rows={2}
+          />
+          <button
+            className="btn btn--primary"
+            onClick={() => doCall(AGENT_A, promptA, setCallA)}
+            disabled={!lastBuy || busyIs(`call:${AGENT_A}`)}
+          >
+            {busyIs(`call:${AGENT_A}`) ? 'calling…' : `Send as ${AGENT_A}`}
+          </button>
+          {callA && <CallResult result={callA} />}
+        </StepCard>
+
+        {/* 4 · transfer */}
+        <StepCard
+          n={4}
+          title="Transfer voucher"
+          status={statuses[4]}
+          highlight={autoStep === 4}
+          hint="A priced claim on future compute changes hands — before anyone consumes it."
+        >
+          <div className="flow">
+            <span className="mono">{AGENT_A}</span>
+            <span className="flow__arrow">→ #{voucherId ?? '—'} →</span>
+            <span className="mono">{AGENT_B}</span>
+          </div>
+          <button
+            className="btn btn--primary"
+            onClick={() => doTransfer()}
+            disabled={!lastBuy || voucherStatus === 'transferred' || voucherStatus === 'redeemed' || busyIs('transfer')}
+          >
+            {busyIs('transfer') ? 'transferring…' : `Transfer #${voucherId ?? ''} to ${AGENT_B}`}
+          </button>
+          {transferRes && (
+            <div className="result">
+              <div className="result__row">
+                <span>voucher</span>
+                <b className="mono">#{transferRes.tokenId}</b>
+              </div>
+              <div className="result__row">
+                <span>now held by</span>
+                <b className="mono">{transferRes.to}</b>
+              </div>
+              <div className="note">held, but not yet usable — Agent B must redeem it into quota.</div>
+            </div>
+          )}
+        </StepCard>
+
+        {/* 5 · redeem */}
+        <StepCard
+          n={5}
+          title="Redeem into quota"
+          status={statuses[5]}
+          highlight={autoStep === 5}
+          hint="Agent B exercises the claim, converting the voucher into usable quota."
+        >
+          <button
+            className="btn btn--primary"
+            onClick={() => doRedeem()}
+            disabled={!transferRes || voucherStatus === 'redeemed' || busyIs('redeem')}
+          >
+            {busyIs('redeem') ? 'redeeming…' : `Redeem #${voucherId ?? ''} as ${AGENT_B}`}
+          </button>
+          {redeemRes && (
+            <div className="result">
+              <div className="result__row">
+                <span>voucher</span>
+                <b className="mono">#{redeemRes.tokenId}</b>
+              </div>
+              <div className="result__row result__row--move">
+                <span>status</span>
+                <b className="up">redeemed → quota credited ✓</b>
+              </div>
+            </div>
+          )}
+        </StepCard>
+
+        {/* 6 · call as B */}
+        <StepCard
+          n={6}
+          title="Second agent calls"
+          status={statuses[6]}
+          highlight={autoStep === 6}
+          hint="The voucher worked: Agent B now makes a successful, metered call of its own."
+        >
+          <textarea
+            className="ta"
+            value={promptB}
+            onChange={(e) => setPromptB(e.target.value)}
+            rows={2}
+          />
+          <button
+            className="btn btn--primary"
+            onClick={() => doCall(AGENT_B, promptB, setCallB)}
+            disabled={!redeemRes || busyIs(`call:${AGENT_B}`)}
+          >
+            {busyIs(`call:${AGENT_B}`) ? 'calling…' : `Send as ${AGENT_B}`}
+          </button>
+          {callB && <CallResult result={callB} />}
+        </StepCard>
+        </div>
+      </section>
+
+      {/* ── integrations slide page ── */}
+      <Slides />
+
+      {/* ── connect your agent ── */}
+      <ConnectAgent />
+
+      {/* ── usage ledger ── */}
+      <section className="card ledger">
+        <h2 className="card__title">
+          <span className="card__num">∑</span> Usage ledger
+          <span className="ledger__sub">GET /boa/usage · verifiable delivery</span>
+        </h2>
+        {ledger.length === 0 ? (
+          <p className="ledger__empty">No calls metered yet. Run a model call to populate receipts.</p>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>agent</th>
+                <th>model</th>
+                <th className="r">prompt</th>
+                <th className="r">compl.</th>
+                <th className="r">total</th>
+                <th className="r">cost</th>
+                <th className="r">price (before → after)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ledger.map((r) => (
+                <tr key={r.id}>
+                  <td className="mono">{r.agent}</td>
+                  <td>{r.model}</td>
+                  <td className="r">{r.prompt_tokens}</td>
+                  <td className="r">{r.completion_tokens}</td>
+                  <td className="r">{r.total_tokens}</td>
+                  <td className="r">{usd(r.cost, 4)}</td>
+                  <td className="r mono">
+                    {usd(r.price_before, 4)} → {usd(r.price_after, 4)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <footer className="ftr">
+        <div className="ftr__row">
+          <span>Bank of Agent · built at ETHNYC</span>
+          <a href="https://erc7527.com" target="_blank" rel="noreferrer">
+            ERC-7527 · erc7527.com →
+          </a>
+        </div>
+        <p className="ftr__fine">
+          Mock relay implements interface contract v0 · markets · ERC-7527 FOAMM · ENS identity ·
+          Hedera + Arc · metered <code>/v1</code>. Set <code>NEXT_PUBLIC_RELAY_URL</code> to go live
+          with zero code changes.
+        </p>
+      </footer>
+    </div>
+  );
+}
+
+// ── small inline presentational helpers ────────────────────────────────────--
+function IdRow({ role, ens, identity }: { role: string; ens: string; identity: Identity | null }) {
+  return (
+    <div className="id">
+      <div className="id__role">{role}</div>
+      <div className="id__ens mono">{ens}</div>
+      <div className={`id__addr mono ${identity ? '' : 'id__addr--off'}`}>
+        {identity ? `${identity.address.slice(0, 10)}…${identity.address.slice(-6)}` : 'not resolved'}
+      </div>
+    </div>
+  );
+}
+
+function CallResult({ result }: { result: ChatResult }) {
+  return (
+    <div className="call">
+      <div className="call__bubble">{result.content}</div>
+      <UsageReceiptView receipt={result.usage} />
+    </div>
+  );
+}
