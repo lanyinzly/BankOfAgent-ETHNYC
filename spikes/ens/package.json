@@ -12,6 +12,7 @@
     "sepolia:full": "tsx src/register-and-write-sepolia.ts",
     "demo": "tsx src/demo.ts",
     "fleet": "tsx src/fleet-demo.ts",
+    "selfmint": "tsx src/self-mint-fleet-sepolia.ts",
     "fallback": "tsx src/static-map.ts"
   },
   "license": "MIT",
