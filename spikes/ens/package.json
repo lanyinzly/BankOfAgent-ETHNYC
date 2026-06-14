@@ -11,6 +11,7 @@
     "writeread:sepolia": "tsx src/write-read-sepolia.ts",
     "sepolia:full": "tsx src/register-and-write-sepolia.ts",
     "demo": "tsx src/demo.ts",
+    "fleet": "tsx src/fleet-demo.ts",
     "fallback": "tsx src/static-map.ts"
   },
   "license": "MIT",
