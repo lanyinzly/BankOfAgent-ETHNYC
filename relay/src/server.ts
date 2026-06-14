@@ -78,6 +78,57 @@ export function buildApp(cfg: Config) {
 
   const err = (res: any, status: number, message: string) => res.status(status).json({ error: message });
 
+  // ---- landing page (so opening the relay URL in a browser shows something) ----
+  const ROUTER_CONSOLE = process.env.BOA_ROUTER_CONSOLE_URL || "https://boa-newapi-production.up.railway.app/";
+  const WEB_URL = process.env.BOA_WEB_URL || "https://boa-web-demo.vercel.app";
+  app.get("/", (req: any, res: any) => {
+    const base = `https://${req.headers.host}`;
+    res.type("html").send(`<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bank of Agent · Relay</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0b0e14;color:#e6edf3;font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:760px;margin:8vh auto;padding:0 24px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#6ee7b7;box-shadow:0 0 10px #6ee7b7;margin-right:8px}
+  h1{font-size:30px;letter-spacing:-.02em;margin:.2em 0}
+  .kick{color:#6ee7b7;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .card{background:#11151f;border:1px solid #1e2636;border-radius:12px;padding:16px 18px;margin:16px 0}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #0e131c;font-size:14px}
+  .row:last-child{border:0}
+  .dim{color:#8b97a8}
+  a{color:#7aa2ff;text-decoration:none}
+  .pill{display:inline-block;font-size:12px;color:#6ee7b7;border:1px solid rgba(110,231,183,.4);border-radius:999px;padding:2px 9px}
+  .links{margin-top:18px;display:flex;gap:16px;flex-wrap:wrap}
+</style></head><body><div class="wrap">
+  <div class="kick">Bank of Agent</div>
+  <h1><span class="dot"></span>Relay <span class="pill">LIVE</span></h1>
+  <p class="dim">OpenAI- &amp; Anthropic-compatible gateway in front of the ERC-7527 FOAMM membership market. Holds membership/quota, meters usage, and emits a router-signed receipt per call.</p>
+  <div class="card">
+    <div class="row"><span class="dim">OpenAI base URL</span><code>${base}/v1</code></div>
+    <div class="row"><span class="dim">Anthropic base URL</span><code>${base}</code></div>
+    <div class="row"><span class="dim">chain mode</span><code>${adapter.mode}</code></div>
+    <div class="row"><span class="dim">market</span><code>${adapter.market().id}</code></div>
+    <div class="row"><span class="dim">upstream</span><code>${upstream.isStub ? "stub-echo" : "forward"}</code></div>
+    <div class="row"><span class="dim">router (proof)</span><code>${proof.routerAddress}</code></div>
+  </div>
+  <div class="card">
+    <div class="row"><span class="dim">POST</span><code>/v1/chat/completions</code></div>
+    <div class="row"><span class="dim">POST</span><code>/v1/messages</code></div>
+    <div class="row"><span class="dim">GET</span><code>/boa/price</code></div>
+    <div class="row"><span class="dim">POST</span><code>/boa/membership/{buy,redeem,transfer}</code></div>
+    <div class="row"><span class="dim">GET</span><code>/boa/usage · /boa/identity · /health</code></div>
+  </div>
+  <div class="links">
+    <a href="/health">health →</a>
+    <a href="/boa/price">price →</a>
+    <a href="${ROUTER_CONSOLE}" target="_blank" rel="noreferrer">router console (new-api) ↗</a>
+    <a href="${WEB_URL}" target="_blank" rel="noreferrer">web demo ↗</a>
+  </div>
+</div></body></html>`);
+  });
+
   function resolveAgent(handle: unknown): Agent | null {
     if (typeof handle !== "string" || !handle) return null;
     return identity.resolveByBearer(handle) ?? identity.resolve(handle);
