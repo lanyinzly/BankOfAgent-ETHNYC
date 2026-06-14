@@ -9,9 +9,8 @@
 // to visibly prove the records are real on-chain ENS, not API mock data.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPublicClient, http } from 'viem';
-import { sepolia } from 'viem/chains';
-import { ENS_API_BASE, ENS_READ_RPC } from '../config';
+import { ENS_API_BASE } from '../config';
+import { reader } from '../lib/ensClient';
 import './agentFleet.css';
 
 interface Health {
@@ -45,7 +44,6 @@ type StepKey = (typeof STEPS)[number]['key'];
 type StepState = 'idle' | 'pending' | 'done' | 'error';
 
 const trunc = (a?: string) => (a && a.length > 14 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a || '');
-const reader = createPublicClient({ chain: sepolia, transport: http(ENS_READ_RPC) });
 
 function parseUsage(s: string): Record<string, unknown> | null {
   try {
