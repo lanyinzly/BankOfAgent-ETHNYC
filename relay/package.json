@@ -1,0 +1,27 @@
+{
+  "name": "boa-relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bank of Agent (BoA) Relay — OpenAI-compatible gateway in front of the ERC-7527 FOAMM membership market. Spine session: contracts + relay + demo.",
+  "main": "index.ts",
+  "scripts": {
+    "start": "node index.ts",
+    "relay": "node index.ts",
+    "demo": "node demo.ts",
+    "dev": "node --watch index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3"
+  }
+}

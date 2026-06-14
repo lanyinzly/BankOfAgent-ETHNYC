@@ -1,4 +1,8 @@
-# Bank of Agent (BoA)
+<p align="center">
+  <img src="assets/logo.svg" width="96" alt="Bank of Agent" />
+</p>
+
+<h1 align="center">Bank of Agent (BoA)</h1>
 
 ### The forward market for AI compute
 

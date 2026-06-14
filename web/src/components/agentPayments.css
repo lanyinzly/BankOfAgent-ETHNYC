@@ -1,0 +1,83 @@
+/* Agent Payments (Hedera) — scoped under .boa-pay so it never touches site CSS. */
+.boa-pay {
+  --bg: #0b0e14;
+  --panel: #11151f;
+  --panel2: #0e131c;
+  --line: #1e2636;
+  --ink: #e6edf3;
+  --dim: #8b97a8;
+  --sig: #d71921; /* the single red signal — fired when the premium ticks up */
+  --ok: #6ee7b7;
+  --acc2: #7aa2ff;
+  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  max-width: 1080px;
+  margin: 64px auto;
+  padding: 28px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.boa-pay .mono { font-family: var(--mono); }
+
+.boa-pay .pay-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.boa-pay .pay-kicker { color: var(--ok); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.boa-pay .pay-title { margin: 4px 0 0; font-size: 30px; letter-spacing: -.02em; }
+.boa-pay .pay-tag { margin: 8px 0 0; max-width: 620px; color: var(--dim); font-size: 14px; line-height: 1.5; }
+.boa-pay .pay-badge2 { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); }
+.boa-pay .pay-badge2 a { color: var(--acc2); text-decoration: none; }
+.boa-pay .pay-dot { width: 9px; height: 9px; border-radius: 50%; background: #444c5e; display: inline-block; }
+.boa-pay .pay-dot--on { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+
+.boa-pay .pay-controls { display: flex; gap: 10px; margin: 22px 0; flex-wrap: wrap; }
+.boa-pay .pay-controls input { background: var(--panel2); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 9px 11px; font-size: 14px; min-width: 200px; flex: 1; }
+.boa-pay .pay-controls input:focus { outline: none; border-color: var(--acc2); }
+.boa-pay .pay-controls button { background: var(--ink); color: #06210f; border: 0; border-radius: 8px; padding: 9px 18px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.boa-pay .pay-controls button:disabled { opacity: .5; cursor: not-allowed; }
+
+.boa-pay .pay-ticker { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; font-family: var(--mono); margin: 18px 0; }
+.boa-pay .pay-ticker__from { font-size: 26px; color: var(--dim); }
+.boa-pay .pay-ticker__arrow { color: var(--dim); }
+.boa-pay .pay-ticker__to { font-size: 34px; color: var(--ink); }
+.boa-pay .pay-up { color: var(--sig); font-weight: 700; font-size: 16px; }
+.boa-pay .pay-ticker__label { color: var(--dim); font-family: system-ui; font-size: 12px; letter-spacing: .04em; }
+
+.boa-pay .pay-curve { display: flex; align-items: center; gap: 12px; color: var(--sig); margin-bottom: 18px; }
+.boa-pay .pay-curve span { color: var(--dim); font-size: 12px; }
+.boa-pay .pay-spark { display: block; }
+
+.boa-pay .pay-steps { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0; }
+.boa-pay .pay-step { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel2); font-size: 13px; color: var(--dim); }
+.boa-pay .pay-step__dot { width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: #1c2433; color: var(--dim); }
+.boa-pay .pay-step.active { color: var(--ink); border-color: rgba(122,162,255,.5); }
+.boa-pay .pay-step.active .pay-step__dot { background: var(--acc2); color: #04122e; animation: pay-pulse 1s infinite; }
+.boa-pay .pay-step.done { color: var(--ink); border-color: rgba(110,231,183,.45); }
+.boa-pay .pay-step.done .pay-step__dot { background: var(--ok); color: #06210f; }
+@keyframes pay-pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+
+.boa-pay .pay-line { font-size: 13px; margin: 6px 0; }
+.boa-pay .pay-dim { color: var(--dim); }
+.boa-pay .pay-settle { font-size: 14px; margin: 10px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.boa-pay .pay-settle a, .boa-pay .pay-links a, .boa-pay .pay-table a { color: var(--acc2); text-decoration: none; font-size: 12px; }
+.boa-pay code { font-family: var(--mono); color: var(--acc2); }
+
+.boa-pay .pay-result { margin-top: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.boa-pay .pay-badge { display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 999px; margin-right: 8px; border: 1px solid var(--line); color: var(--dim); }
+.boa-pay .pay-badge.ok { color: var(--ok); border-color: rgba(110,231,183,.4); }
+.boa-pay .pay-links { margin-top: 8px; display: flex; gap: 14px; }
+.boa-pay .pay-result details { margin-top: 10px; }
+.boa-pay .pay-result summary { cursor: pointer; color: var(--dim); font-size: 13px; }
+.boa-pay .pay-result pre { margin-top: 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-family: var(--mono); font-size: 12px; color: var(--ok); overflow: auto; max-height: 260px; }
+.boa-pay .pay-err { margin-top: 12px; color: var(--sig); font-size: 13px; }
+
+.boa-pay .pay-h3 { font-size: 15px; margin: 26px 0 12px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.boa-pay .pay-sub { color: var(--dim); font-size: 12px; font-weight: 400; }
+.boa-pay .pay-empty { color: var(--dim); padding: 22px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; }
+.boa-pay .pay-tablewrap { overflow-x: auto; }
+.boa-pay .pay-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.boa-pay .pay-table th { text-align: left; color: var(--dim); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.boa-pay .pay-table td { padding: 8px 10px; border-bottom: 1px solid var(--panel2); }
+
+.boa-pay .pay-notice { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-size: 13px; color: var(--dim); margin-top: 18px; }
+.boa-pay .pay-notice code { color: var(--acc2); font-family: var(--mono); }

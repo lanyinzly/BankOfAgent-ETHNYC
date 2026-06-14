@@ -1,0 +1,34 @@
+{
+  "name": "boa-web-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Bank of Agent — web demo of the agent-native exchange for AI compute (FOAMM forward curve, vouchers, metered relay).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc --noEmit",
+    "mock:init": "msw init public/ --save"
+  },
+  "dependencies": {
+    "@gsap/react": "^2.1.2",
+    "gsap": "^3.15.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "msw": "^2.6.8",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}

@@ -1,0 +1,98 @@
+/* Economic-loop deck: show one step at a time as its own "screen". Both the
+   guided demo and the manual ←/→ navigation page through these one step at a
+   time (paired with the deck state + auto-scroll-to-center in App.tsx). */
+
+/* breathing room so a step centered by the guided demo reads as "its own screen" */
+.step {
+  scroll-margin-top: 96px;
+}
+
+.deck {
+  border: 1px solid var(--border-visible);
+  background: var(--surface);
+  margin-bottom: var(--s-md);
+}
+
+/* the single active step — give the deck a stable height so paging doesn't jump */
+.deck__stage {
+  display: flex;
+  min-height: 360px;
+}
+.deck__stage .step {
+  flex: 1;
+  animation: deck-in 0.35s var(--ease);
+}
+@keyframes deck-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.deck__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-md);
+  padding: var(--s-md) var(--s-lg);
+  border-top: 1px solid var(--border);
+}
+.deck__arrow {
+  font-family: var(--mono);
+  font-size: 16px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-visible);
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+.deck__arrow:hover:not(:disabled) {
+  color: var(--black);
+  background: var(--text-display);
+  border-color: var(--text-display);
+}
+.deck__arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.deck__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.deck__count {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.deck__dots {
+  display: flex;
+  gap: var(--s-sm);
+}
+.deck__dot {
+  width: 28px;
+  height: 4px;
+  background: var(--border-visible);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s var(--ease);
+}
+.deck__dot:disabled {
+  cursor: default;
+}
+.deck__dot--done {
+  background: var(--success);
+}
+.deck__dot--on {
+  background: var(--accent);
+}

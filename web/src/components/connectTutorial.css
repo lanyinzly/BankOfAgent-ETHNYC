@@ -1,0 +1,40 @@
+.ctut {
+  max-width: 1080px;
+  margin: 64px auto;
+  padding: 28px;
+}
+.ctut__kicker { color: #6ee7b7; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin: 0; }
+.ctut__title { font-size: 30px; letter-spacing: -0.02em; margin: 6px 0 8px; }
+.ctut__sub { color: #8b97a8; max-width: 640px; font-size: 15px; line-height: 1.6; margin: 0; }
+.ctut__steps {
+  list-style: none;
+  margin: 26px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+@media (max-width: 720px) { .ctut__steps { grid-template-columns: 1fr; } }
+.ctut__step {
+  display: flex;
+  gap: 14px;
+  background: #11151f;
+  border: 1px solid #1e2636;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.ctut__num {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #0e131c;
+  border: 1px solid #1e2636;
+  color: #6ee7b7;
+  font-weight: 700;
+  font-size: 13px;
+}
+.ctut__stepTitle { font-weight: 600; color: #e6edf3; margin-bottom: 4px; }
+.ctut__stepBody { color: #8b97a8; font-size: 13px; line-height: 1.55; margin: 0; }

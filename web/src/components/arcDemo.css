@@ -1,0 +1,91 @@
+/* BoA × Arc — scoped under .boa-arc. Circle-blue accent on the dark system. */
+.boa-arc {
+  --bg: #0b0e14; --panel: #11151f; --panel2: #0e131c; --line: #1e2636;
+  --ink: #e6edf3; --dim: #8b97a8; --acc: #4f8cff; --acc2: #6ee7b7; --sig: #d71921;
+  --mono: ui-monospace, SFMono-Regular, "Space Mono", Menlo, monospace;
+  max-width: 1080px; margin: 64px auto; padding: 28px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 16px;
+  color: var(--ink); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.boa-arc .arc-mono, .boa-arc .arc-balance, .boa-arc .arc-price { font-family: var(--mono); }
+.boa-arc .arc-dim { color: var(--dim); }
+
+.boa-arc .arc-hero { position: relative; }
+.boa-arc .arc-ribbon { display: inline-block; font-size: 11px; letter-spacing: .04em; color: #06210f; background: var(--acc2); padding: 3px 10px; border-radius: 999px; margin-bottom: 12px; }
+.boa-arc .arc-kicker { color: var(--acc); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.boa-arc .arc-title { font-size: 32px; letter-spacing: -.02em; margin: 6px 0 8px; }
+.boa-arc .arc-sub { color: var(--dim); max-width: 680px; font-size: 15px; line-height: 1.6; margin: 0 0 14px; }
+.boa-arc .arc-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.boa-arc .arc-chip { font-size: 12px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; }
+.boa-arc .arc-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.boa-arc .arc-badge { font-size: 11px; color: var(--acc); border: 1px solid rgba(79,140,255,.4); border-radius: 6px; padding: 3px 9px; }
+
+.boa-arc .arc-tabs { display: flex; gap: 8px; margin: 22px 0 16px; }
+.boa-arc .arc-tabs button { background: var(--panel2); border: 1px solid var(--line); color: var(--dim); border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+.boa-arc .arc-tabs button.on { color: var(--ink); border-color: var(--acc); }
+
+.boa-arc .arc-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.boa-arc .arc-panel__head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.boa-arc .arc-panel__head h3 { margin: 0; font-size: 15px; }
+.boa-arc .arc-price { font-size: 26px; font-weight: 700; color: var(--acc2); }
+.boa-arc .arc-price span { font-size: 12px; color: var(--dim); font-family: system-ui; }
+.boa-arc .arc-curve { width: 100%; height: auto; margin-top: 10px; }
+.boa-arc .arc-axis { stroke: #2a3346; stroke-width: 1; }
+.boa-arc .arc-line { stroke: var(--acc); stroke-width: 2.5; }
+.boa-arc .arc-area { fill: rgba(79,140,255,.12); }
+.boa-arc .arc-guide { stroke: rgba(110,231,183,.5); stroke-dasharray: 3 3; }
+.boa-arc .arc-marker { transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.boa-arc .arc-marker__halo { fill: rgba(110,231,183,.25); }
+.boa-arc .arc-marker__dot { fill: var(--acc2); }
+.boa-arc .arc-axislbl { fill: var(--dim); font-size: 11px; font-family: system-ui; }
+.boa-arc .arc-cap { color: var(--dim); font-size: 13px; margin: 10px 0 0; line-height: 1.5; }
+
+.boa-arc .arc-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+@media (max-width: 640px) { .boa-arc .arc-grid2 { grid-template-columns: 1fr; } }
+.boa-arc .arc-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.boa-arc .arc-card__role { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+.boa-arc .arc-card .arc-mono { display: block; color: var(--acc); text-decoration: none; font-size: 13px; margin: 6px 0; }
+.boa-arc .arc-balance { font-size: 22px; font-weight: 700; }
+.boa-arc .arc-balance span { font-size: 12px; color: var(--dim); }
+.boa-arc .arc-balance--seller { color: var(--acc2); }
+
+.boa-arc .arc-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 6px 0 14px; }
+.boa-arc .arc-controls select, .boa-arc .arc-controls input[type=text], .boa-arc .arc-controls input:not([type]) {
+  background: var(--panel2); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 9px 11px; font-size: 14px;
+}
+.boa-arc .arc-controls input:not([type=range]) { flex: 1; min-width: 200px; }
+.boa-arc .arc-slider { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); }
+.boa-arc .arc-slider b { color: var(--ink); }
+.boa-arc .arc-run { background: var(--acc); color: #04122e; border: 0; border-radius: 8px; padding: 9px 16px; font-weight: 700; cursor: pointer; }
+.boa-arc .arc-run:disabled { opacity: .5; cursor: not-allowed; }
+
+.boa-arc .arc-steps { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.boa-arc .arc-step { display: flex; gap: 10px; align-items: flex-start; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; animation: arc-in .35s ease; }
+@keyframes arc-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.boa-arc .arc-step__dot { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--acc2); color: #06210f; display: grid; place-items: center; font-size: 11px; }
+.boa-arc .arc-step--discover .arc-step__dot, .boa-arc .arc-step--reprice .arc-step__dot { background: var(--sig); color: #fff; }
+.boa-arc .arc-step__label { font-size: 13px; color: var(--ink); }
+.boa-arc .arc-step__meta { font-size: 12px; color: var(--dim); display: block; text-decoration: none; }
+.boa-arc a.arc-step__meta { color: var(--acc); }
+.boa-arc .arc-paid { font-size: 13px; color: var(--ink); padding: 8px 2px; }
+.boa-arc .arc-paid a, .boa-arc .arc-settle a { color: var(--acc); text-decoration: none; }
+
+.boa-arc .arc-settle { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.boa-arc .arc-settle button { background: var(--panel); border: 1px solid var(--acc); color: var(--acc); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; }
+.boa-arc .arc-settle__out { font-size: 13px; color: var(--ink); }
+.boa-arc .arc-err { margin-top: 12px; color: var(--sig); font-size: 13px; }
+.boa-arc .arc-empty { color: var(--dim); padding: 24px; text-align: center; }
+.boa-arc .arc-foot { margin-top: 18px; font-size: 12px; }
+.boa-arc .arc-notice { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-size: 13px; color: var(--dim); margin-top: 18px; }
+.boa-arc .arc-notice code { color: var(--acc); font-family: var(--mono); }
+
+/* architecture */
+.boa-arc .arc-arch { padding: 8px 0; }
+.boa-arc .arc-arch__row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; margin: 12px 0; }
+.boa-arc .arc-arch__row--rev { opacity: .9; }
+.boa-arc .arc-node { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; font-size: 13px; text-align: center; }
+.boa-arc .arc-node span { display: block; font-size: 11px; color: var(--dim); margin-top: 3px; }
+.boa-arc .arc-node--chain { border-color: var(--acc); }
+.boa-arc .arc-node--ghost { border-style: dashed; color: var(--dim); }
+.boa-arc .arc-node--ok { border-color: var(--acc2); color: var(--acc2); }
+.boa-arc .arc-arrow { color: var(--dim); font-size: 12px; font-family: var(--mono); }

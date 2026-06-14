@@ -1,0 +1,24 @@
+{
+  "name": "boa-arc-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "BoA × Arc — agent-native price discovery + x402 USDC settlement on Arc testnet (Circle Agent Stack).",
+  "main": "index.ts",
+  "scripts": {
+    "start": "node index.ts",
+    "relay": "node relay.ts",
+    "dev": "node --watch index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": { "node": ">=22.6.0" },
+  "dependencies": {
+    "ethers": "^6.13.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3"
+  }
+}
