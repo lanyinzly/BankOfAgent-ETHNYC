@@ -71,6 +71,16 @@ in-process so it always runs.)
   input_tokens, output_tokens, total_cost_usdc, settlement_tx,
   quota_remaining_usdc, router_signature }`.
 
+### `POST /v1/messages` — Anthropic native
+- **Header:** `x-api-key: <agent-key | agent-ENS>` (`Authorization: Bearer` also accepted)
+- Same pipeline as above (auth → membership/quota → forward → meter → settle →
+  signed receipt), but speaks the **Anthropic Messages API** shape on the way in
+  and out, and forwards to the upstream `/v1/messages`. Returns an Anthropic
+  `message` object (`{ type:"message", role:"assistant", content:[{type:"text",…}],
+  usage:{ input_tokens, output_tokens }, … }`) plus the same `x-boa-usage` header.
+- Lets an **Anthropic SDK** client use the shim URL as `base_url` directly, just
+  like the OpenAI endpoint above.
+
 ### `GET /boa/price?market=<id>`
 Reads the on-chain `getWrapOracle` (or the in-memory mirror).
 → `{ market, sold, basePremium, currentPremium, nextPremium, currency, unit:"ETH",
@@ -259,27 +269,44 @@ it needs no Dockerfile — just the settings below.
 > provider keys, `PRIVATE_KEY` / `AGENT_*_PRIVATE_KEY`, `SESSION_SECRET`,
 > `CRYPTO_SECRET`. They are Railway Variables only.
 
-### DoD check — external OpenAI-compatible client
+### DoD check — external client (OpenAI *or* Anthropic)
 
-Once both services are up, the shim URL is a drop-in OpenAI `base_url`:
+Once both services are up, the shim URL is a drop-in `base_url` for both dialects.
+
+OpenAI:
 
 ```bash
 curl -s https://<shim-domain>/v1/chat/completions \
   -H "Authorization: Bearer boa-sk-agent-a" \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}'
+  -d '{"model":"claude-opus-4-6","messages":[{"role":"user","content":"hello"}]}'
 ```
 
-or from any OpenAI SDK:
+Anthropic:
+
+```bash
+curl -s https://<shim-domain>/v1/messages \
+  -H "x-api-key: boa-sk-agent-a" -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-opus-4-6","max_tokens":64,"messages":[{"role":"user","content":"hello"}]}'
+```
+
+or from the SDKs:
 
 ```python
 from openai import OpenAI
-client = OpenAI(base_url="https://<shim-domain>/v1", api_key="boa-sk-agent-a")
-client.chat.completions.create(model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "hello"}])
+OpenAI(base_url="https://<shim-domain>/v1", api_key="boa-sk-agent-a") \
+    .chat.completions.create(model="claude-opus-4-6",
+        messages=[{"role": "user", "content": "hello"}])
+
+from anthropic import Anthropic
+Anthropic(base_url="https://<shim-domain>", api_key="boa-sk-agent-a") \
+    .messages.create(model="claude-opus-4-6", max_tokens=64,
+        messages=[{"role": "user", "content": "hello"}])
 ```
 
-Returns an OpenAI-shaped completion plus the `x-boa-usage` header (signed receipt).
+Each returns the provider-shaped response plus the `x-boa-usage` header (signed
+receipt). *(Both verified live on Railway against `claude-opus-4-6` via new-api.)*
 With `UPSTREAM_*` set, the body is a real model response from new-api; unset, it
 is the stub echo. *(Verified locally: the container image builds, boots, and serves
 this exact call with HTTP 200 + a signed `x-boa-usage` receipt.)*
