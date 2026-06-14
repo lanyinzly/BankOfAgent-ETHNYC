@@ -36,6 +36,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # Fail fast with a clear message if the deploy token is missing, instead of
+      # a cryptic "--token is missing a value" deep inside `vercel pull`.
+      - name: Verify VERCEL_TOKEN is set
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN repo secret is not set — add it in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
       - run: npm i -g vercel@latest
       - run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
       - run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
