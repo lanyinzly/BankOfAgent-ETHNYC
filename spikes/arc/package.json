@@ -5,6 +5,8 @@
   "type": "module",
   "description": "Sprint 0 spike: prove the USDC settlement rail works on Arc testnet (with a Base Sepolia fallback).",
   "scripts": {
+    "start": "tsx src/agentic/relay-server.ts",
+    "relay:serve": "tsx src/agentic/relay-server.ts",
     "gen": "tsx src/genWallets.ts",
     "preflight": "tsx src/preflight.ts",
     "arc": "tsx src/transfer.ts arc",
@@ -14,13 +16,16 @@
     "cctp": "tsx src/agentic/cctp.ts",
     "agent-wallets": "tsx src/agentic/wallets.ts"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "dotenv": "^16.4.7",
-    "ethers": "^6.13.5"
+    "ethers": "^6.13.5",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }

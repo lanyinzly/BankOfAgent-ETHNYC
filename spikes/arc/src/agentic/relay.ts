@@ -20,7 +20,7 @@ export interface RelayHandle {
   close: () => Promise<void>;
 }
 
-export async function startRelay(payTo: string, port = 0): Promise<RelayHandle> {
+export async function startRelay(payTo: string, port = 0, host = "127.0.0.1"): Promise<RelayHandle> {
   const provider = new ethers.JsonRpcProvider(ARC.rpcUrl);
   const usdc = new ethers.Contract(ARC.usdc, ERC20_ABI, provider);
   const usedTx = new Set<string>(); // replay protection: a payment tx is spent once
@@ -29,6 +29,12 @@ export async function startRelay(payTo: string, port = 0): Promise<RelayHandle> 
     ethers.parseUnits(((tokens / 1000) * PRICE_PER_1K_TOKENS_USDC).toFixed(6), ARC.decimals);
 
   const server = http.createServer(async (req, res) => {
+    // Health check (Railway / uptime probes).
+    if (req.method === "GET" && req.url?.startsWith("/health")) {
+      res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" });
+      res.end(JSON.stringify({ ok: true, payTo, network: ARC.key }));
+      return;
+    }
     if (req.method !== "POST" || !req.url?.startsWith("/infer")) {
       res.writeHead(404).end("not found");
       return;
@@ -82,10 +88,11 @@ export async function startRelay(payTo: string, port = 0): Promise<RelayHandle> 
     }
   });
 
-  await new Promise<void>((r) => server.listen(port, "127.0.0.1", () => r()));
+  await new Promise<void>((r) => server.listen(port, host, () => r()));
   const addr = server.address() as { port: number };
+  const shown = host === "0.0.0.0" ? "localhost" : host;
   return {
-    url: `http://127.0.0.1:${addr.port}`,
+    url: `http://${shown}:${addr.port}`,
     payTo,
     close: () => new Promise<void>((r) => server.close(() => r())),
   };
