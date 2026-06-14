@@ -79,18 +79,19 @@ body::after {
   border-radius: 50%;
   background: var(--accent);
 }
-/* brand mark (inline SVG) variant — no box/dot, renders white on the dark nav */
+/* brand mark — no box/dot; render the (dark) logo white on the dark nav */
 .nav__logo--mark {
   border: 0;
-  color: var(--text-display);
 }
 .nav__logo--mark::after {
   display: none;
 }
-.nav__logo--mark svg {
+.nav__logo--mark img {
   width: 100%;
   height: 100%;
   display: block;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 .nav__name {
   font-family: var(--mono);

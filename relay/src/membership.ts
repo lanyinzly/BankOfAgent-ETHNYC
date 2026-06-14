@@ -1,32 +1,35 @@
-// Membership service — ties the FOAMM chain adapter together with the relay's
-// off-chain quota ledger.
+// Membership service — FOAMM voucher custody + the off-chain callable-quota ledger.
 //
-// Quota model (documented in README — the web demo must align):
-//   * Buying (wrap) mints an ERC-7527 voucher to the agent AND attaches a metered
-//     usage allowance (quotaUsdcPerMembership) to that token.
-//   * An agent may call models while it has available quota:
-//         availableQuota(agent) = Σ allowance(vouchers it owns) + standaloneQuota(agent)
-//   * Transferring the voucher moves its REMAINING allowance with it.
-//   * Redeeming (unwrap) burns the voucher, returns the FOAMM premium on-chain,
-//     and converts the voucher's remaining allowance into STANDALONE quota for the
-//     redeemer ("redeem the voucher into quota") — so a second agent can keep
-//     calling after redeeming, which is exactly the demo's closing step.
+// Quota model (aligned with the web contract v0 — the redeem step must be "real"):
+//   * Buying (wrap) mints ERC-7527 voucher(s) to the buyer AND credits the buyer
+//     callable quota (quotaUsdcPerMembership per voucher).
+//   * Holding a voucher is NOT enough to call — only bought/redeemed quota is.
+//     So a recipient who was *transferred* an un-redeemed voucher has no quota and
+//     gets 402 until they redeem it. That is what makes "redeem unlocks Agent B" real.
+//   * Transferring moves the voucher (the claim) but NOT quota.
+//   * Redeeming (unwrap) burns the voucher, returns the FOAMM premium on-chain, and
+//     credits the redeemer quota ("redeem the voucher into quota").
 
-import type { Agent, ChainAdapter, WrapResult } from "./types.ts";
+import type { Agent, ChainAdapter } from "./types.ts";
 
 interface VoucherRecord {
   tokenId: number;
   owner: string; // lowercased address
   ens?: string;
-  allowanceUsdc: number;
 }
 
-export interface BuyResult extends WrapResult {
+export interface BuyResult {
+  tokenId: number;
+  tokenIds: number[];
+  pricePaid: number;
+  priceBefore: number;
+  priceAfter: number;
   quotaUsdc: number;
+  txHashes: string[];
 }
 export interface RedeemResult {
   tokenId: number;
-  refund: string;
+  refund: number;
   quotaCreditedUsdc: number;
   txHash?: string;
 }
@@ -37,7 +40,7 @@ export interface ChargeResult {
 
 export class MembershipService {
   private vouchers = new Map<number, VoucherRecord>();
-  private standalone = new Map<string, number>(); // address -> usdc quota
+  private quota = new Map<string, number>(); // address -> callable USDC quota
   private adapter: ChainAdapter;
   private quotaUsdcPerMembership: number;
 
@@ -46,26 +49,40 @@ export class MembershipService {
     this.quotaUsdcPerMembership = quotaUsdcPerMembership;
   }
 
-  private std(addr: string): number {
-    return this.standalone.get(addr.toLowerCase()) ?? 0;
+  private q(addr: string): number {
+    return this.quota.get(addr.toLowerCase()) ?? 0;
   }
-
-  // Credit standalone quota directly (used for startup bootstrap so an external
-  // client can call without an explicit on-chain buy first).
+  // Credit callable quota (used by buy, redeem, and the startup bootstrap).
   creditStandalone(address: string, usdc: number): void {
-    const key = address.toLowerCase();
-    this.standalone.set(key, round6(this.std(key) + usdc));
+    this.quota.set(address.toLowerCase(), round6(this.q(address) + usdc));
   }
 
-  async buy(agent: Agent): Promise<BuyResult> {
-    const res = await this.adapter.wrap(agent.address);
-    this.vouchers.set(res.tokenId, {
-      tokenId: res.tokenId,
-      owner: agent.address.toLowerCase(),
-      ens: agent.ens,
-      allowanceUsdc: this.quotaUsdcPerMembership,
-    });
-    return { ...res, quotaUsdc: this.quotaUsdcPerMembership };
+  async buy(agent: Agent, quantity = 1): Promise<BuyResult> {
+    const n = Math.max(1, Math.min(Math.floor(quantity) || 1, 50));
+    const tokenIds: number[] = [];
+    const txHashes: string[] = [];
+    let priceBefore = 0;
+    let priceAfter = 0;
+    let pricePaid = 0;
+    for (let i = 0; i < n; i++) {
+      const r = await this.adapter.wrap(agent.address);
+      this.vouchers.set(r.tokenId, { tokenId: r.tokenId, owner: agent.address.toLowerCase(), ens: agent.ens });
+      tokenIds.push(r.tokenId);
+      if (r.txHash) txHashes.push(r.txHash);
+      if (i === 0) priceBefore = Number(r.priceBefore);
+      priceAfter = Number(r.priceAfter);
+      pricePaid += Number(r.pricePaid);
+      this.creditStandalone(agent.address, this.quotaUsdcPerMembership);
+    }
+    return {
+      tokenId: tokenIds[0],
+      tokenIds,
+      pricePaid: round6(pricePaid),
+      priceBefore,
+      priceAfter,
+      quotaUsdc: round6(this.quotaUsdcPerMembership * n),
+      txHashes,
+    };
   }
 
   async redeem(agent: Agent, tokenId: number): Promise<RedeemResult> {
@@ -75,14 +92,12 @@ export class MembershipService {
       throw new Error(`voucher ${tokenId} not owned by ${agent.ens}`);
     }
     const res = await this.adapter.unwrap(agent.address, tokenId);
-    // convert remaining allowance into standalone quota for the redeemer
-    const key = agent.address.toLowerCase();
-    this.standalone.set(key, round6(this.std(key) + v.allowanceUsdc));
     this.vouchers.delete(tokenId);
+    this.creditStandalone(agent.address, this.quotaUsdcPerMembership); // redeem -> quota
     return {
       tokenId,
-      refund: res.refund,
-      quotaCreditedUsdc: round6(v.allowanceUsdc),
+      refund: Number(res.refund),
+      quotaCreditedUsdc: round6(this.quotaUsdcPerMembership),
       txHash: res.txHash,
     };
   }
@@ -96,7 +111,7 @@ export class MembershipService {
     const res = await this.adapter.transfer(from.address, to.address, tokenId);
     v.owner = to.address.toLowerCase();
     v.ens = to.ens;
-    return res;
+    return res; // quota does NOT move with the voucher
   }
 
   vouchersOf(address: string): VoucherRecord[] {
@@ -105,41 +120,27 @@ export class MembershipService {
   }
 
   availableQuota(address: string): number {
-    const fromVouchers = this.vouchersOf(address).reduce((s, v) => s + v.allowanceUsdc, 0);
-    return round6(fromVouchers + this.std(address));
+    return this.q(address);
   }
 
   hasAccess(address: string): boolean {
-    return this.availableQuota(address) > 0;
+    return this.q(address) > 0;
   }
 
-  // Deduct `amount` USDC: voucher allowances first (lowest tokenId), then standalone.
-  // Returns the voucher charged against (for the receipt), or null if standalone.
+  // Deduct `amount` USDC from callable quota. Returns a voucher the agent owns
+  // (for the receipt's membership_token_id), or null.
   charge(address: string, amount: number): ChargeResult {
-    let remaining = amount;
-    let membership_token_id: number | null = null;
-    for (const v of this.vouchersOf(address)) {
-      if (remaining <= 0) break;
-      if (v.allowanceUsdc <= 0) continue;
-      if (membership_token_id === null) membership_token_id = v.tokenId;
-      const take = Math.min(v.allowanceUsdc, remaining);
-      v.allowanceUsdc = round6(v.allowanceUsdc - take);
-      remaining = round6(remaining - take);
-    }
-    if (remaining > 0) {
-      const key = address.toLowerCase();
-      const take = Math.min(this.std(key), remaining);
-      this.standalone.set(key, round6(this.std(key) - take));
-      remaining = round6(remaining - take);
-    }
-    return { membership_token_id, charged: round6(amount - Math.max(0, remaining)) };
+    const before = this.q(address);
+    const take = Math.min(before, amount);
+    this.quota.set(address.toLowerCase(), round6(before - take));
+    const owned = this.vouchersOf(address);
+    return { membership_token_id: owned[0]?.tokenId ?? null, charged: round6(take) };
   }
 
   snapshot(address: string) {
     return {
-      vouchers: this.vouchersOf(address).map((v) => ({ tokenId: v.tokenId, allowanceUsdc: v.allowanceUsdc })),
-      standaloneQuotaUsdc: this.std(address),
-      availableQuotaUsdc: this.availableQuota(address),
+      vouchers: this.vouchersOf(address).map((v) => v.tokenId),
+      callableQuotaUsdc: this.q(address),
     };
   }
 }

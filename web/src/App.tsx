@@ -218,17 +218,7 @@ export default function App() {
       <nav className="nav">
         <a className="nav__brand" href="#top">
           <span className="nav__logo nav__logo--mark" aria-hidden="true">
-            <svg
-              viewBox="0 0 100 100"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={12.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M19 82 L50 18 L81 82" />
-              <path d="M31 71 C 43 90 57 90 69 71 C 75 60 63 57 58 66" />
-            </svg>
+            <img src="/logo.svg" alt="" />
           </span>
           <span className="nav__name">BANK OF AGENT</span>
         </a>

@@ -98,23 +98,23 @@ async function main() {
   step(1, "FOAMM price BEFORE any buy");
   let price = (await api("GET", `/boa/price?market=boa-membership`)).json;
   kv("sold", price.sold);
-  kv("currentPremium", `${price.currentPremium} ${price.unit}`);
-  kv("nextPremium", `${price.nextPremium} ${price.unit}`);
+  kv("currentPremium", `${price.currentPremium} USDC`);
+  kv("nextPremium", `${price.nextPremium} USDC`);
 
   // agent A buys membership
   step(2, "agent A buys membership (wrap) — watch the curve move");
   const buy1 = await api("POST", "/boa/membership/buy", { body: { agent: AGENT_A.ens, market: "boa-membership" } });
   kv("tokenId", buy1.json.tokenId);
-  kv("priceBefore", `${buy1.json.priceBefore} ${buy1.json.unit}`);
-  kv("priceAfter", c.green(`${buy1.json.priceAfter} ${buy1.json.unit}  ⬆ curve moved`));
-  kv("pricePaid", `${buy1.json.pricePaid} ${buy1.json.unit}`);
+  kv("priceBefore", `${buy1.json.priceBefore} USDC`);
+  kv("priceAfter", c.green(`${buy1.json.priceAfter} USDC  ⬆ curve moved`));
+  kv("pricePaid", `${buy1.json.pricePaid} USDC`);
   kv("quotaGranted", `${buy1.json.quotaUsdc} USDC`);
-  if (buy1.json.txHash) kv("txHash", buy1.json.txHash);
+  if (buy1.json.txHashes?.length) kv("txHash", buy1.json.txHashes[0]);
   const tokenId = buy1.json.tokenId;
 
   price = (await api("GET", `/boa/price`)).json;
   kv("price.now sold", price.sold);
-  kv("price.now current", `${price.currentPremium} ${price.unit}`);
+  kv("price.now current", `${price.currentPremium} USDC`);
 
   // agent A makes a metered call
   step(3, "agent A calls /v1/chat/completions (OpenAI-compatible)");
@@ -130,10 +130,10 @@ async function main() {
   kv("assistant", '"' + (call1.json.choices?.[0]?.message?.content ?? "").slice(0, 90) + '..."');
   const usage1 = JSON.parse(call1.headers.get("x-boa-usage") || "{}");
   console.log(c.dim("    x-boa-usage (signed usage receipt):"));
-  kv("  request_id", usage1.request_id);
+  kv("  request_id", usage1.id);
   kv("  membership_token", usage1.membership_token_id);
-  kv("  tokens in/out", `${usage1.input_tokens}/${usage1.output_tokens}`);
-  kv("  total_cost_usdc", usage1.total_cost_usdc);
+  kv("  tokens in/out", `${usage1.prompt_tokens}/${usage1.completion_tokens}`);
+  kv("  total_cost_usdc", usage1.cost);
   kv("  settlement_tx", (usage1.settlement_tx || "").slice(0, 26) + "...");
   kv("  router_signature", c.yellow((usage1.router_signature || "").slice(0, 26) + "..."));
   kv("  quota_remaining", `${usage1.quota_remaining_usdc} USDC`);
@@ -156,13 +156,13 @@ async function main() {
   step(6, "agent B redeems the voucher into quota (unwrap)");
   const redeem = await api("POST", "/boa/membership/redeem", { body: { agent: AGENT_B.ens, tokenId } });
   kv("tokenId burned", redeem.json.tokenId);
-  kv("refund", `${redeem.json.refund} ${redeem.json.unit}`);
-  kv("quotaCredited", c.green(`${redeem.json.quotaCreditedUsdc} USDC  → standalone quota`));
+  kv("refund", `${redeem.json.refund} USDC`);
+  kv("quotaCredited", c.green(`${redeem.json.quotaCreditedUsdc} USDC  → callable quota`));
   if (redeem.json.txHash) kv("txHash", redeem.json.txHash);
 
   price = (await api("GET", `/boa/price`)).json;
   kv("price.now sold", `${price.sold}  ${c.dim("(voucher burned, supply back down)")}`);
-  kv("price.now current", `${price.currentPremium} ${price.unit}`);
+  kv("price.now current", `${price.currentPremium} USDC`);
 
   // agent B makes a successful call using redeemed quota
   step(7, "agent B calls /v1/chat/completions (using redeemed quota)");
@@ -176,8 +176,8 @@ async function main() {
   kv("status", call2.status === 200 ? c.green(`${call2.status} OK`) : c.yellow(String(call2.status)));
   kv("assistant", '"' + (call2.json.choices?.[0]?.message?.content ?? "").slice(0, 90) + '..."');
   const usage2 = JSON.parse(call2.headers.get("x-boa-usage") || "{}");
-  kv("membership_token", usage2.membership_token_id ?? "null (standalone quota)");
-  kv("total_cost_usdc", usage2.total_cost_usdc);
+  kv("membership_token", usage2.membership_token_id ?? "null (redeemed quota)");
+  kv("total_cost_usdc", usage2.cost);
   kv("router_signature", c.yellow((usage2.router_signature || "").slice(0, 26) + "..."));
   kv("quota_remaining", `${usage2.quota_remaining_usdc} USDC`);
 

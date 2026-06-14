@@ -39,8 +39,9 @@ export interface UsageReceipt {
   output_tokens: number;
   total_cost_usdc: number;
   settlement_tx: string;
-  price_before: string; // FOAMM membership premium snapshot (ETH) before the call
-  price_after: string; // FOAMM membership premium snapshot (ETH) after the call
+  price_before: string; // FOAMM membership premium snapshot before the call
+  price_after: string; // FOAMM membership premium snapshot after the call
+  timestamp: number; // ms epoch when metered
   router_signature: string; // ECDSA sig by the router key over the receipt body
 }
 
