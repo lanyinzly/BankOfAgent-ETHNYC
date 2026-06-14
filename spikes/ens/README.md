@@ -145,6 +145,33 @@ ones the on-chain record holds, so swapping ENS ↔ fallback is invisible on sta
 text record, proven against the real ENS contracts (and resolvable on mainnet/Sepolia).
 On stage we read from a static mirror so the demo never blocks on an RPC.”*
 
+## ENS v1 vs v2 — what this uses, and why it can look "v1"
+
+Short version: there is **no separate "v2 chain" to mint on**. The ENS that's live
+today (registry + `.eth` NFT + resolver + subnames + text records) is the architecture
+now retroactively called **v1**; **ENSv2 is an in-progress upgrade of that same L1
+system**, not a different contract you register against.
+
+- This spike already uses the **newer** pieces: the current registry `0x0000…2e1e`,
+  Sepolia's **live single-step controller** `0xdf60C561…3477078` (struct/`referrer` ABI,
+  no commit-reveal, ~$0.05 post-Fusaka), and the new permissionless **Universal
+  Resolver** `0xeeee…eeee` for reads. So the mechanics are on the *new* side, not old.
+- Our names are **unwrapped** (owned directly in the registry, not in NameWrapper) —
+  valid and current; it's just what the live Sepolia controller produces. The
+  "looks like v1" impression usually comes from *unwrapped ≠ wrapped (ERC-1155)*.
+- The controller churn we hit (docs/npm list `0xfb3c…`, which is **removed**; live is
+  `0xdf60…`) is ENS iterating on Sepolia toward v2.
+
+**Status (2026-06):** ENS Labs **scrapped the planned Namechain L2** (Feb 2026) and is
+shipping **ENSv2 directly on Ethereum L1** — the Fusaka upgrade cut ENS gas ~99%, so a
+dedicated L2 was no longer needed. New ENS App + Explorer are in public alpha; the
+registry/resolver/subname/text-record primitives this spike uses are the v2 foundation.
+
+**Judge answer:** *"v2 is rolling out on L1 now — we use its on-chain primitives (subname
+registry + text records + Universal Resolver). v2 is mainly new UX (one-click reg,
+stablecoin payments), not a different mint, and our fleet-subname design maps onto it
+with zero migration."*
+
 ## Files
 
 | File | Role |
