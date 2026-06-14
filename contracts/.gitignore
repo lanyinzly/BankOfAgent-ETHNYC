@@ -1,0 +1,6 @@
+# Foundry build + dependency artifacts (reinstall via `make deps`)
+/lib/
+/out/
+/cache/
+/broadcast/
+.env

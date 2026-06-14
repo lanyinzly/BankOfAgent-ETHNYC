@@ -1,0 +1,17 @@
+{
+  "agencyImpl": "0x65c57Ebc829D64da70bb067d68250Eeee21C297E",
+  "appImpl": "0xD71B89C4b00D80763e47D3d4dEac649e936e3F5c",
+  "chainId": 11155111,
+  "deployer": "0x9f47e49f6AafE4aBb18B67bEb3B36A7A8Fe96d4F",
+  "factory": "0x7f22C05da2F4C9063477dA14101D2c56D510785E",
+  "market": {
+    "agency": "0x47d5b439FdC1Bb59ee1A6Ae7bfDED8e246ee33EE",
+    "app": "0xc72e56656266dA245276336DCA0c861F0A2739B4",
+    "basePremium": 20000000000000,
+    "burnFeePercent": 100,
+    "currency": "0x0000000000000000000000000000000000000000",
+    "feeRecipient": "0x9f47e49f6AafE4aBb18B67bEb3B36A7A8Fe96d4F",
+    "id": "boa-membership",
+    "mintFeePercent": 100
+  }
+}

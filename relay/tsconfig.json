@@ -1,0 +1,15 @@
+{
+  "//": "For editors/typecheck only. Node 22 runs the .ts files directly (native type stripping); there is no build step. `npx tsc --noEmit` to typecheck.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["index.ts", "demo.ts", "src/**/*.ts"]
+}
