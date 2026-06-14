@@ -54,9 +54,22 @@ in-process so it always runs.)
 
 ## Interface contract v0
 
-> **This contract is frozen. The web demo session must match it exactly.**
-> All FOAMM premium/price values are decimal strings denominated in **ETH** (the
-> market currency on Base Sepolia); per-call usage cost is denominated in **USDC**.
+> **Canonical contract = `web/src/types.ts` + `web/src/lib/relayClient.ts`.** The
+> relay now matches it exactly (the web is the consumer / source of truth):
+> - `/boa/price` and `/boa/membership/buy` return **numbers** (USDC), and `/boa/price`
+>   includes **`maxSupply`**.
+> - `/boa/usage` and the `x-boa-usage` header use the web **`UsageReceipt`** shape
+>   `{ id, agent, model, prompt_tokens, completion_tokens, total_tokens, cost,
+>   price_before, price_after, currency, timestamp }` (+ BoA extras: `settlement_tx`,
+>   `router_signature`, `membership_token_id`, `quota_remaining_usdc`).
+> - 4xx bodies are `{ "error": string }`.
+> - **CORS** is enabled with `Access-Control-Expose-Headers: x-boa-usage` (set the
+>   allowed origin via `BOA_CORS_ORIGIN`).
+> - The web's default model id `boa-router/auto` is mapped to a real upstream model
+>   (`BOA_DEFAULT_MODEL`, default `claude-opus-4-6`).
+> - **Memory mode** (the always-on web demo) defaults to the web's economics:
+>   basePremium **10**, maxSupply **30**, **0.5%** fees, market `frontier-llm.q3`.
+>   **Onchain mode** still mirrors the deployed contract via `deployments.json`.
 
 ### `POST /v1/chat/completions` — OpenAI compatible
 - **Header:** `Authorization: Bearer <agent-key | agent-ENS>`
@@ -113,26 +126,29 @@ Transfers the ERC-721 voucher (and its remaining quota) between agents.
 
 ---
 
-## Usage receipt schema (FROZEN)
+## Usage receipt schema
 
-Every metered call produces exactly this object. `router_signature` is a real
-ECDSA signature by the relay's router key over the stable-sorted JSON of the
-other fields — so *every call == one signed usage receipt*, ready to publish to
-Hedera HCS later without changing shape.
+Every metered call produces this object (contract-v0 `UsageReceipt` + BoA extras).
+`router_signature` is a real ECDSA signature by the relay's router key — so *every
+call == one signed usage receipt*, ready to publish to Hedera HCS later.
 
 ```jsonc
 {
-  "request_id":          "boa-req-…",
-  "agent_ens":           "agent-a.boa.eth",
-  "membership_token_id": 1,            // or null when paid from standalone quota
-  "model":               "boa-stub-echo",
-  "input_tokens":        15,
-  "output_tokens":       58,
-  "total_cost_usdc":     0.000095,
-  "settlement_tx":       "0x…",        // mock USDC settlement reference (Arc later)
-  "price_before":        "0.0000202",  // FOAMM membership premium (ETH) at call time
-  "price_after":         "0.0000202",  // a call does not move the curve, so == before
-  "router_signature":    "0x…"         // ECDSA over the stable-sorted receipt body
+  "id":                  "boa-req-…",       // request id
+  "agent":               "agent-a.boa.eth",
+  "model":               "claude-opus-4-6",
+  "prompt_tokens":       15,
+  "completion_tokens":   58,
+  "total_tokens":        73,
+  "cost":                0.000095,          // USDC drawn from quota
+  "price_before":        10.1,              // FOAMM premium snapshot (number)
+  "price_after":         10.1,              // a call does not move the curve, so ==
+  "currency":            "USDC",
+  "timestamp":           1781400000000,
+  // ── BoA extras (web ignores) ──
+  "membership_token_id": 1,                 // or null
+  "settlement_tx":       "0x…",             // mock USDC settlement ref (Arc later)
+  "router_signature":    "0x…"              // ECDSA over the receipt body
 }
 ```
 
@@ -141,18 +157,19 @@ Hedera HCS later without changing shape.
 ## Quota / membership model
 
 Reconciles the on-chain ERC-7527 mechanics (`wrap` / `unwrap`) with the
-"redeem the voucher into quota" narrative. **The web demo must align with this.**
+"redeem the voucher into quota" narrative — and makes the redeem step **real**:
 
-- **Buy (`wrap`)** mints an ERC-7527 voucher to the agent **and** attaches a
-  metered usage allowance (`BOA_QUOTA_USDC`, default `5` USDC) to that token.
-- An agent may call models while it has available quota:
-  `availableQuota(agent) = Σ allowance(vouchers it owns) + standaloneQuota(agent)`.
-  Each call deducts its `total_cost_usdc` (voucher allowances first, then standalone).
-- **Transfer** moves the voucher **and its remaining allowance** to the new owner.
+- **Buy (`wrap`)** mints ERC-7527 voucher(s) to the buyer **and** credits the buyer
+  callable quota (`BOA_QUOTA_USDC`, default `5` USDC per voucher; `quantity` mints N).
+- **Holding a voucher is NOT enough to call** — only bought/redeemed quota is. So an
+  agent that was *transferred* an un-redeemed voucher has **no quota and gets `402`**
+  until it redeems. (`hasAccess(agent) = callableQuota(agent) > 0`.)
+- **Transfer** moves the voucher (the claim) but **not** quota.
 - **Redeem (`unwrap`)** burns the voucher, returns the FOAMM premium on-chain, and
-  converts the voucher's remaining allowance into **standalone quota** for the
-  redeemer — so the second agent keeps callable quota after redeeming (the demo's
+  **credits the redeemer quota** — unlocking the second agent's calls (the demo's
   closing step).
+- `BOA_BOOTSTRAP_QUOTA_USDC` (default `0`) can pre-credit known agents; keep it `0`
+  so the buy→quota / redeem→quota / 402-otherwise narrative stays real.
 
 ---
 

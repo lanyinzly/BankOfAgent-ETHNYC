@@ -85,17 +85,19 @@ export function loadConfig(): Config {
   const deployments = loadDeployments();
   const dm = deployments?.market ?? {};
 
-  // Default FOAMM params mirror contracts/script/DeployBoA.s.sol so memory mode
-  // behaves identically to the deployed market even with no deployments.json.
+  // Market params. When a deployments.json is present (onchain mode) we mirror the
+  // deployed contract exactly. Otherwise (memory mode — the always-on web demo)
+  // the defaults match the web's contract-v0 economics in web/src/lib/foamm.ts:
+  // basePremium 10 (USDC), maxSupply 30, 0.5% fees, market "frontier-llm.q3".
   const market: MarketConfig = {
-    id: env("BOA_MARKET_ID") ?? dm.id ?? "boa-membership",
+    id: env("BOA_MARKET_ID") ?? dm.id ?? "frontier-llm.q3",
     agency: env("BOA_AGENCY") ?? dm.agency ?? "0x0000000000000000000000000000000000000000",
     app: env("BOA_APP") ?? dm.app ?? "0x0000000000000000000000000000000000000000",
     currency: dm.currency ?? "0x0000000000000000000000000000000000000000",
-    basePremium: BigInt(env("BOA_BASE_PREMIUM") ?? dm.basePremium ?? "20000000000000"), // 0.00002 ETH
-    mintFeePercent: BigInt(env("BOA_MINT_FEE_PERCENT") ?? dm.mintFeePercent ?? "100"),
-    burnFeePercent: BigInt(env("BOA_BURN_FEE_PERCENT") ?? dm.burnFeePercent ?? "100"),
-    maxSupply: numEnv("BOA_MAX_SUPPLY", 100),
+    basePremium: BigInt(env("BOA_BASE_PREMIUM") ?? dm.basePremium ?? "10000000000000000000"), // 10.0
+    mintFeePercent: BigInt(env("BOA_MINT_FEE_PERCENT") ?? dm.mintFeePercent ?? "50"), // 0.50%
+    burnFeePercent: BigInt(env("BOA_BURN_FEE_PERCENT") ?? dm.burnFeePercent ?? "50"), // 0.50%
+    maxSupply: numEnv("BOA_MAX_SUPPLY", dm.id ? 100 : 30),
     chainId: env("BOA_CHAIN_ID") ? Number(env("BOA_CHAIN_ID")) : deployments?.chainId,
   };
 
