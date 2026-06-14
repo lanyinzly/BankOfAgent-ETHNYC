@@ -195,9 +195,13 @@ export default function AgentIdentityWidget() {
               </button>
             </>
           ) : (
-            <div className="aiw-note">
-              Set <code>VITE_ENS_API_BASE</code> to your boa-ens-service to spin up your own ENS agent.
-            </div>
+            // Once an agent is connected (the default agent, or one you created),
+            // drop the config hint — it only matters when nothing is connected yet.
+            !connectedName && (
+              <div className="aiw-note">
+                Set <code>VITE_ENS_API_BASE</code> to your boa-ens-service to spin up your own ENS agent.
+              </div>
+            )
           )}
         </div>
       )}

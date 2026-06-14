@@ -67,6 +67,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [autoStep, setAutoStep] = useState<number | null>(null);
   const [auto, setAuto] = useState(false);
+  // economic-loop deck: which single step is on screen (1–6)
+  const [step, setStep] = useState(1);
 
   // ── helpers ────────────────────────────────────────────────────────────────
   const run = useCallback(
@@ -215,13 +217,18 @@ export default function App() {
     refreshPrice();
   }, [refreshPrice]);
 
-  // Guided demo: auto-scroll the active step into the center of the screen so the
-  // user follows one step at a time as the loop advances.
+  // Guided demo drives the deck: the auto-loop's active step becomes the visible
+  // page (clamped to 1–6; step 7 is the "done" state, which rests on step 6).
   useEffect(() => {
-    if (!auto || autoStep == null) return;
-    const el = document.getElementById(`step-${autoStep}`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (auto && autoStep != null) setStep(Math.min(6, Math.max(1, autoStep)));
   }, [auto, autoStep]);
+
+  // While the guided demo plays, keep the active step centered on screen.
+  useEffect(() => {
+    if (!auto) return;
+    const el = document.getElementById(`step-${step}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [auto, step]);
 
   // ── derived step status ─────────────────────────────────────────────────────
   const statuses: Record<number, StepStatus> = useMemo(
@@ -284,6 +291,8 @@ export default function App() {
       />
 
       <Pillars />
+      {/* ── onboarding & integrations (moved up, right after the four primitives) ── */}
+      <Slides />
       <Explainer />
 
       {/* ── the economic loop ── */}
@@ -305,9 +314,11 @@ export default function App() {
           </div>
         )}
 
-        {/* the loop, step by step */}
-        <div className={`grid ${auto ? 'grid--guided' : ''}`}>
+        {/* the loop — one step at a time (deck) */}
+        <div className="deck">
+          <div className="deck__stage">
         {/* 1 · identity */}
+        {step === 1 && (
         <StepCard
           n={1}
           title="Agent identity"
@@ -323,8 +334,10 @@ export default function App() {
             {busyIs('connect') ? 'connecting…' : online ? 'reconnect to relay' : 'Connect to relay'}
           </button>
         </StepCard>
+        )}
 
         {/* 2 · buy membership */}
+        {step === 2 && (
         <StepCard
           n={2}
           title="Buy membership"
@@ -374,8 +387,10 @@ export default function App() {
             </div>
           )}
         </StepCard>
+        )}
 
         {/* 3 · call as A */}
+        {step === 3 && (
         <StepCard
           n={3}
           title="Call a model"
@@ -398,8 +413,10 @@ export default function App() {
           </button>
           {callA && <CallResult result={callA} />}
         </StepCard>
+        )}
 
         {/* 4 · transfer */}
+        {step === 4 && (
         <StepCard
           n={4}
           title="Transfer voucher"
@@ -433,8 +450,10 @@ export default function App() {
             </div>
           )}
         </StepCard>
+        )}
 
         {/* 5 · redeem */}
+        {step === 5 && (
         <StepCard
           n={5}
           title="Redeem into quota"
@@ -462,8 +481,10 @@ export default function App() {
             </div>
           )}
         </StepCard>
+        )}
 
         {/* 6 · call as B */}
+        {step === 6 && (
         <StepCard
           n={6}
           title="Second agent calls"
@@ -486,6 +507,43 @@ export default function App() {
           </button>
           {callB && <CallResult result={callB} />}
         </StepCard>
+        )}
+          </div>
+
+          <div className="deck__nav">
+            <button
+              className="deck__arrow"
+              onClick={() => setStep((s) => Math.max(1, s - 1))}
+              disabled={auto || step === 1}
+              aria-label="Previous step"
+            >
+              ←
+            </button>
+            <div className="deck__meta">
+              <span className="deck__count">Step {step} / 6</span>
+              <div className="deck__dots" role="tablist">
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <button
+                    key={n}
+                    className={`deck__dot deck__dot--${statuses[n]} ${n === step ? 'deck__dot--on' : ''}`}
+                    onClick={() => setStep(n)}
+                    disabled={auto}
+                    aria-label={`Go to step ${n}`}
+                    aria-selected={n === step}
+                    role="tab"
+                  />
+                ))}
+              </div>
+            </div>
+            <button
+              className="deck__arrow"
+              onClick={() => setStep((s) => Math.min(6, s + 1))}
+              disabled={auto || step === 6}
+              aria-label="Next step"
+            >
+              →
+            </button>
+          </div>
         </div>
       </section>
 
@@ -494,9 +552,6 @@ export default function App() {
 
       {/* ── agent payments · Hedera (live testnet: HTS settle + HCS audit) ── */}
       <AgentPaymentsDemo />
-
-      {/* ── integrations slide page ── */}
-      <Slides />
 
       {/* ── connect your agent ── */}
       <ConnectAgent />
