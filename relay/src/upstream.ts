@@ -82,8 +82,17 @@ export class UpstreamModel {
     return { response, completionText: content, inputTokens, outputTokens, model };
   }
 
+  // Normalize UPSTREAM_BASE_URL into the chat-completions endpoint, tolerating
+  // common forms: ".../v1", root host, or a full ".../v1/chat/completions".
+  private completionsUrl(): string {
+    const b = this.baseUrl!.replace(/\/+$/, "");
+    if (b.endsWith("/chat/completions")) return b;
+    if (/\/v\d+$/.test(b)) return `${b}/chat/completions`;
+    return `${b}/v1/chat/completions`;
+  }
+
   private async forward(req: CompletionRequest, requestId: string): Promise<UpstreamResult> {
-    const url = `${this.baseUrl!.replace(/\/$/, "")}/chat/completions`;
+    const url = this.completionsUrl();
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -92,11 +101,19 @@ export class UpstreamModel {
       },
       body: JSON.stringify(req),
     });
+    const ct = res.headers.get("content-type") || "";
+    const raw = await res.text();
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`upstream ${res.status}: ${text.slice(0, 500)}`);
+      throw new Error(`upstream ${res.status} from ${url}: ${raw.slice(0, 500)}`);
     }
-    const response = (await res.json()) as Record<string, any>;
+    if (!ct.includes("json") || raw.trimStart().startsWith("<")) {
+      // Almost always means UPSTREAM_BASE_URL is wrong (hit the web UI, not the
+      // OpenAI API). Give a clear hint instead of a JSON.parse stack trace.
+      throw new Error(
+        `upstream returned non-JSON (${ct || "?"}) from ${url} — check UPSTREAM_BASE_URL points at the OpenAI-compatible base (it should resolve to /v1/chat/completions). Body: ${raw.slice(0, 160)}`,
+      );
+    }
+    const response = JSON.parse(raw) as Record<string, any>;
     const model = (response.model as string) || req.model || "upstream";
     const completionText = response?.choices?.[0]?.message?.content ?? "";
     const usage = response.usage ?? {};
