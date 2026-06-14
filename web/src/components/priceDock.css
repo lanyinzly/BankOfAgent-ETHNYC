@@ -1,0 +1,45 @@
+/* Floating FOAMM price module — hidden at the top (hero shows the big curve),
+   slides in fixed bottom-left once you scroll into the demo. */
+.pdock {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 40;
+  width: 210px;
+  padding: 12px 14px;
+  background: rgba(11, 14, 20, 0.92);
+  backdrop-filter: blur(10px);
+  border: 1px solid #1e2636;
+  border-radius: 12px;
+  color: #e6edf3;
+  font-family: ui-monospace, SFMono-Regular, "Space Mono", Menlo, monospace;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(16px) scale(0.96);
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.4s ease;
+}
+.pdock--on {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.pdock--up {
+  border-color: rgba(215, 25, 33, 0.7);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(215, 25, 33, 0.5);
+}
+.pdock__top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pdock__label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b97a8; }
+.pdock__mkt { font-size: 10px; color: #6b7689; }
+.pdock__priceRow { display: flex; align-items: baseline; gap: 8px; margin: 4px 0 2px; }
+.pdock__price { font-size: 24px; font-weight: 700; }
+.pdock--up .pdock__price { color: #d71921; }
+.pdock__delta { font-size: 12px; color: #d71921; font-weight: 700; }
+.pdock__spark { width: 100%; height: 40px; color: #7aa2ff; display: block; }
+.pdock--up .pdock__spark { color: #d71921; }
+.pdock__dot { fill: #e6edf3; }
+.pdock__foot { display: flex; justify-content: space-between; font-size: 10px; color: #8b97a8; margin-top: 4px; }
+
+@media (max-width: 640px) {
+  .pdock { left: 10px; bottom: 10px; width: 168px; padding: 10px; }
+}

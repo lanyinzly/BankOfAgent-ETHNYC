@@ -1,0 +1,42 @@
+/* Fixed bottom-center narration banner for the guided demo. */
+.gnar {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translate(-50%, 24px);
+  z-index: 60;
+  width: min(560px, calc(100vw - 48px));
+  background: rgba(11, 14, 20, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid #2a3346;
+  border-radius: 14px;
+  padding: 14px 18px 10px;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.gnar--on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.gnar__inner { display: flex; gap: 12px; align-items: flex-start; }
+.gnar__badge {
+  flex: none;
+  font-family: ui-monospace, SFMono-Regular, "Space Mono", Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #06210f;
+  background: #6ee7b7;
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-top: 1px;
+}
+.gnar__text {
+  margin: 0;
+  color: #e6edf3;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.gnar__track { margin-top: 10px; height: 3px; background: #1e2636; border-radius: 999px; overflow: hidden; }
+.gnar__fill { height: 100%; background: linear-gradient(90deg, #6ee7b7, #7aa2ff); transition: width 0.5s ease; }

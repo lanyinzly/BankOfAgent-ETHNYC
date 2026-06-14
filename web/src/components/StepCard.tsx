@@ -13,7 +13,7 @@ interface Props {
 
 export default function StepCard({ n, title, status, hint, highlight, children }: Props) {
   return (
-    <section className={`card step step--${status} ${highlight ? 'step--hl' : ''}`}>
+    <section id={`step-${n}`} className={`card step step--${status} ${highlight ? 'step--hl' : ''}`}>
       <h2 className="card__title">
         <span className={`card__num card__num--${status}`}>{status === 'done' ? '✓' : n}</span>
         {title}

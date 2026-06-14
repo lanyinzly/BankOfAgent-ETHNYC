@@ -15,6 +15,8 @@ import {
 import './agentWidget.css';
 
 const LS_KEY = 'boa.agentIdentity';
+// A default agent is shown as "connected" out of the box so the UI is never empty.
+const DEFAULT_AGENT = { ens: 'agent-a.boa.eth', address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' };
 const STEPS = [
   { key: 'subname', label: 'Mint subname' },
   { key: 'address', label: 'Set address' },
@@ -36,8 +38,9 @@ export default function AgentIdentityWidget() {
   const [err, setErr] = useState<string | null>(null);
   const [verified, setVerified] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
+  const [usingDefault, setUsingDefault] = useState(true); // a default agent is connected until you make your own
 
-  // restore previous identity
+  // restore previous identity (else stay on the default connected agent)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_KEY);
@@ -47,6 +50,7 @@ export default function AgentIdentityWidget() {
           setAgent(s.agent);
           setMint(s.mint ?? null);
           setPhase(s.mint ? 'ready' : 'wallet');
+          setUsingDefault(false);
         }
       }
     } catch {
@@ -63,6 +67,7 @@ export default function AgentIdentityWidget() {
   const createWallet = () => {
     setAgent(newAgentWallet());
     setErr(null);
+    setUsingDefault(false);
     setPhase('wallet');
   };
   const connectWallet = async () => {
@@ -70,6 +75,7 @@ export default function AgentIdentityWidget() {
     if (!a) return setErr('No injected wallet — use “Create agent wallet”.');
     setAgent({ address: a });
     setErr(null);
+    setUsingDefault(false);
     setPhase('wallet');
   };
 
@@ -138,10 +144,18 @@ export default function AgentIdentityWidget() {
     }
   }, [mint]);
 
+  // What the collapsed pill shows: the live agent's ENS/address, else the default.
+  const connectedName = mint?.ensName ?? (usingDefault ? DEFAULT_AGENT.ens : agent ? trunc(agent.address) : null);
+
   if (!open) {
     return (
-      <button className="aiw-fab" onClick={() => setOpen(true)} aria-label="Agent Identity (ENS)">
-        🤖
+      <button
+        className={`aiw-fab ${connectedName ? 'aiw-fab--connected' : ''}`}
+        onClick={() => setOpen(true)}
+        aria-label="Connect your agent"
+      >
+        <span className="aiw-fab__dot" />
+        <span className="aiw-fab__txt">{connectedName ?? 'Connect your agent'}</span>
       </button>
     );
   }
@@ -149,27 +163,42 @@ export default function AgentIdentityWidget() {
   return (
     <div className="aiw">
       <div className="aiw-head">
-        <span className="aiw-title">Agent Identity · ENS</span>
+        <span className="aiw-title">Connect your agent</span>
         <button className="aiw-x" onClick={() => setOpen(false)} aria-label="collapse">
           —
         </button>
       </div>
 
-      {!configured && (
-        <div className="aiw-note">
-          Set <code>VITE_ENS_API_BASE</code> to your boa-ens-service to enable.
-        </div>
-      )}
-
-      {configured && phase === 'idle' && (
+      {phase === 'idle' && (
         <div className="aiw-body">
-          <p className="aiw-lead">Give this agent a wallet, then a free ENS identity on Sepolia.</p>
-          <button className="aiw-btn aiw-btn--primary" onClick={createWallet}>
-            Create agent wallet
-          </button>
-          <button className="aiw-btn" onClick={connectWallet}>
-            Connect wallet
-          </button>
+          {usingDefault && (
+            <div className="aiw-card">
+              <div className="aiw-ens">{DEFAULT_AGENT.ens}</div>
+              <code
+                className="aiw-mono aiw-addr"
+                title="copy"
+                onClick={() => navigator.clipboard.writeText(DEFAULT_AGENT.address)}
+              >
+                {trunc(DEFAULT_AGENT.address)}
+              </code>
+              <div className="aiw-badge">default agent · connected</div>
+            </div>
+          )}
+          {configured ? (
+            <>
+              <p className="aiw-lead">Spin up your own agent — a wallet + a free ENS identity on Sepolia.</p>
+              <button className="aiw-btn aiw-btn--primary" onClick={createWallet}>
+                Create agent wallet
+              </button>
+              <button className="aiw-btn" onClick={connectWallet}>
+                Connect wallet
+              </button>
+            </>
+          ) : (
+            <div className="aiw-note">
+              Set <code>VITE_ENS_API_BASE</code> to your boa-ens-service to spin up your own ENS agent.
+            </div>
+          )}
         </div>
       )}
 

@@ -22,8 +22,24 @@ import Reveal from './components/Reveal';
 import AgentFleet from './components/AgentFleet';
 import AgentIdentityWidget from './components/AgentIdentityWidget';
 import AgentPaymentsDemo from './components/AgentPaymentsDemo';
+import PriceDock from './components/PriceDock';
+import GuidedNarration from './components/GuidedNarration';
+import ConnectTutorial from './components/ConnectTutorial';
+import './guide.css';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// What the guided demo narrates at each auto-step (shown in the banner + drives auto-scroll).
+const NARRATION: Record<number, string> = {
+  1: 'Connecting Agent A and Agent B — each agent is an ENS identity and audit trail.',
+  2: 'Agent A buys membership vouchers — watch the FOAMM premium tick up as forward capacity is claimed.',
+  3: 'Agent A makes a metered model call through the relay — quota is charged and a signed usage receipt is issued.',
+  4: 'Agent A transfers a voucher to Agent B — a priced claim on future compute changes hands before anyone consumes it.',
+  5: 'Agent B redeems the voucher into callable quota — the claim becomes usable access.',
+  6: 'Agent B makes its own successful call — the loop closes, end to end.',
+  7: 'Done — identity → membership → metered call → transfer → redeem → call, all live.',
+};
+const NARRATION_TOTAL = 6;
 
 export default function App() {
   const [online, setOnline] = useState<boolean | null>(null);
@@ -199,6 +215,14 @@ export default function App() {
     refreshPrice();
   }, [refreshPrice]);
 
+  // Guided demo: auto-scroll the active step into the center of the screen so the
+  // user follows one step at a time as the loop advances.
+  useEffect(() => {
+    if (!auto || autoStep == null) return;
+    const el = document.getElementById(`step-${autoStep}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [auto, autoStep]);
+
   // ── derived step status ─────────────────────────────────────────────────────
   const statuses: Record<number, StepStatus> = useMemo(
     () => ({
@@ -216,6 +240,11 @@ export default function App() {
 
   return (
     <div className="app" id="top">
+      {/* persistent floating FOAMM price (appears when you scroll into the demo) */}
+      <PriceDock price={price} lastBuy={lastBuy} />
+      {/* guided-demo narration banner */}
+      <GuidedNarration active={auto} step={autoStep} total={NARRATION_TOTAL} text={autoStep ? NARRATION[autoStep] ?? null : null} />
+
       {/* ── top nav ── */}
       <nav className="nav">
         <a className="nav__brand" href="#top">
@@ -277,7 +306,7 @@ export default function App() {
         )}
 
         {/* the loop, step by step */}
-        <div className="grid">
+        <div className={`grid ${auto ? 'grid--guided' : ''}`}>
         {/* 1 · identity */}
         <StepCard
           n={1}
@@ -511,6 +540,9 @@ export default function App() {
           </table>
         )}
       </section>
+
+      {/* ── how to connect your agent (tutorial) ── */}
+      <ConnectTutorial />
 
       <footer className="ftr">
         <div className="ftr__row">
