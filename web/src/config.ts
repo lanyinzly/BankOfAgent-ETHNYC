@@ -67,7 +67,7 @@ export const CHAT_KEY_DISPLAY = 'sk-...';
 export const ENS_API_BASE = (
   import.meta.env.VITE_ENS_API_BASE ??
   import.meta.env.NEXT_PUBLIC_ENS_API_BASE ??
-  ''
+  'https://boa-ens-service-production.up.railway.app'
 )
   .trim()
   .replace(/\/+$/, '');
