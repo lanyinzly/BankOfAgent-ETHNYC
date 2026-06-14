@@ -38,8 +38,8 @@ const CANNED: Array<{ test: RegExp; reply: string }> = [
     test: /code|function|write|build|implement/i,
     reply:
       "Point any OpenAI-compatible client at the BoA relay and you're trading compute:\n\n" +
-      "    client = OpenAI(base_url='https://relay.boa.eth/v1', api_key='agent-a.boa.eth')\n" +
-      "    client.chat.completions.create(model='boa-router/auto', messages=[...])\n\n" +
+      "    client = OpenAI(base_url='https://boa-newapi-production.up.railway.app/v1', api_key='sk-...')\n" +
+      "    client.chat.completions.create(model='anthropic/claude-opus-4-6', messages=[...])\n\n" +
       "Every call is metered against your quota and the receipt rides back on the x-boa-usage header.",
   },
 ];

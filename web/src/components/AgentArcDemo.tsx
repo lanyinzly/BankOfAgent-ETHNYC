@@ -15,7 +15,6 @@ const CHIPS = [
 function Hero() {
   return (
     <div className="arc-hero">
-      <div className="arc-ribbon">Submitting for: Best Agentic Economy with Circle Agent Stack</div>
       <div className="arc-kicker">Circle Agent Stack</div>
       <h2 className="arc-title">Agent-native price discovery, settled on Arc.</h2>
       <p className="arc-sub">
