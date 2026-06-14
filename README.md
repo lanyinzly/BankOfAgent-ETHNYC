@@ -16,6 +16,8 @@ account**, a **spot price**, a **forward curve**, and **verifiable delivery**.
 > Spot settlement is live today. The forward curve and compute-as-collateral are
 > the roadmap this architecture makes inevitable.
 
+**Demo video & showcase** → [ethglobal.com/showcase/bank-of-agent-cf0mh](https://ethglobal.com/showcase/bank-of-agent-cf0mh)
+
 **Live demo** → [boa-web-demo.vercel.app](https://boa-web-demo.vercel.app) ·
 **model gateway** → [boa-newapi-production.up.railway.app](https://boa-newapi-production.up.railway.app) ·
 **contracts** → verified on Ethereum Sepolia ([addresses](#live-deployments))
