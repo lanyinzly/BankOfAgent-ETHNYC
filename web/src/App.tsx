@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AGENT_A, AGENT_B, MARKET_ID, RELAY_DISPLAY_URL, RELAY_URL, USING_MOCK } from './config';
+import { AGENT_A, AGENT_B, CHAT_API_BASE, MARKET_ID } from './config';
 import { relay, RelayError } from './lib/relayClient';
 import { usd } from './lib/foamm';
 import type {
@@ -29,6 +29,9 @@ import ConnectTutorial from './components/ConnectTutorial';
 import './guide.css';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// How long each guided step rests on screen so people can read & follow along.
+const STEP_PAUSE = 6000;
 
 // What the guided demo narrates at each auto-step (shown in the banner + drives auto-scroll).
 const NARRATION: Record<number, string> = {
@@ -184,30 +187,30 @@ export default function App() {
       if (!online) {
         setAutoStep(1);
         await connect();
-        await sleep(500);
+        await sleep(STEP_PAUSE);
       }
       setAutoStep(2);
       await doBuy(2);
-      await sleep(750);
+      await sleep(1500);
       const lastBuyRes = await doBuy(2);
       const loopVoucher = lastBuyRes?.tokenId;
-      await sleep(750);
+      await sleep(STEP_PAUSE);
 
       setAutoStep(3);
       await doCall(AGENT_A, promptA, setCallA);
-      await sleep(750);
+      await sleep(STEP_PAUSE);
 
       setAutoStep(4);
       await doTransfer(loopVoucher);
-      await sleep(750);
+      await sleep(STEP_PAUSE);
 
       setAutoStep(5);
       await doRedeem(loopVoucher);
-      await sleep(750);
+      await sleep(STEP_PAUSE);
 
       setAutoStep(6);
       await doCall(AGENT_B, promptB, setCallB);
-      await sleep(400);
+      await sleep(STEP_PAUSE);
       setAutoStep(7);
     } finally {
       setAuto(false);
@@ -271,16 +274,16 @@ export default function App() {
           <a href="#integrations">Integrations</a>
         </div>
         <a
-          className={`pill ${USING_MOCK ? 'pill--mock' : 'pill--live'}`}
-          href={USING_MOCK ? RELAY_DISPLAY_URL : RELAY_URL}
+          className="pill pill--live"
+          href={CHAT_API_BASE}
           target="_blank"
           rel="noreferrer"
           title="open the live relay"
           style={{ textDecoration: 'none', cursor: 'pointer' }}
         >
           <span className="pill__dot" />
-          {USING_MOCK ? 'MOCK RELAY' : 'LIVE RELAY'}
-          <span className="pill__url">{USING_MOCK ? RELAY_DISPLAY_URL : RELAY_URL}</span>
+          LIVE RELAY
+          <span className="pill__url">{CHAT_API_BASE.replace(/^https?:\/\//, '')}</span>
         </a>
       </nav>
 
