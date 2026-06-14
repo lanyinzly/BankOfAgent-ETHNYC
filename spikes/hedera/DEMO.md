@@ -3,6 +3,9 @@
 A 2–3 minute live demo showing **Bank of Agent using Hedera** in front of judges.
 Everything here is real and on **Hedera testnet**.
 
+> 🎥 **Recorded demo video & showcase:**
+> <https://ethglobal.com/showcase/bank-of-agent-cf0mh>
+
 ---
 
 ## 30-second pitch (say this first)
@@ -109,6 +112,8 @@ submitted. No private database in the loop."*
 
 ## If the live run fails (backup plan)
 
+- **Play the recorded demo:** <https://ethglobal.com/showcase/bank-of-agent-cf0mh> — the
+  full flow on video, in case the venue network or testnet is uncooperative.
 - **Network blocked / on stage wifi is locked down:** show the dry-run HashScan tab you
   opened during pre-flight, plus a previously-created topic, e.g.
   <https://hashscan.io/testnet/topic/0.0.9227495>. The artifact is permanent.
