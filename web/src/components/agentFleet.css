@@ -1,0 +1,98 @@
+/* Agent Fleet / ENS view — scoped under .boa-ens so it never touches site CSS. */
+.boa-ens {
+  --bg: #0b0e14;
+  --panel: #11151f;
+  --panel2: #0e131c;
+  --line: #1e2636;
+  --ink: #e6edf3;
+  --dim: #8b97a8;
+  --acc: #6ee7b7;
+  --acc2: #7aa2ff;
+  --warn: #f4b860;
+  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  max-width: 1080px;
+  margin: 64px auto;
+  padding: 28px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.boa-ens .mono { font-family: var(--mono); }
+
+.boa-ens .ens-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.boa-ens .ens-kicker { color: var(--acc); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.boa-ens .ens-title { margin: 4px 0 0; font-size: 30px; letter-spacing: -.02em; }
+.boa-ens .ens-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); }
+.boa-ens .ens-badge a { color: var(--acc2); text-decoration: none; }
+.boa-ens .dot { width: 9px; height: 9px; border-radius: 50%; background: #444c5e; display: inline-block; }
+.boa-ens .dot--on { background: var(--acc); box-shadow: 0 0 10px var(--acc); }
+.boa-ens .ens-pill { margin-left: 6px; font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
+.boa-ens .ens-pill--ok { color: var(--acc); border-color: rgba(110,231,183,.4); }
+
+.boa-ens .ens-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; }
+@media (max-width: 760px) { .boa-ens .ens-grid2 { grid-template-columns: 1fr; } }
+
+.boa-ens .ens-h3 { font-size: 15px; margin: 26px 0 12px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.boa-ens .ens-sub { color: var(--dim); font-size: 12px; font-weight: 400; }
+
+.boa-ens .ens-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.boa-ens .ens-panel .ens-h3 { margin-top: 0; }
+
+.boa-ens .ens-form { display: flex; flex-direction: column; gap: 8px; }
+.boa-ens .ens-form--inline { flex-direction: row; }
+.boa-ens .ens-input { background: var(--panel2); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 9px 11px; font-size: 14px; width: 100%; }
+.boa-ens .ens-input:focus { outline: none; border-color: var(--acc2); }
+.boa-ens .ens-btn { background: var(--acc); color: #06210f; border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.boa-ens .ens-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.boa-ens .ens-stepper { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.boa-ens .ens-step { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); font-size: 13px; color: var(--dim); }
+.boa-ens .ens-step__n { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: #1c2433; color: var(--dim); }
+.boa-ens .ens-step--pending { color: var(--ink); border-color: rgba(122,162,255,.5); }
+.boa-ens .ens-step--pending .ens-step__n { background: var(--acc2); color: #04122e; animation: ens-pulse 1s infinite; }
+.boa-ens .ens-step--done { color: var(--ink); border-color: rgba(110,231,183,.45); }
+.boa-ens .ens-step--done .ens-step__n { background: var(--acc); color: #06210f; }
+.boa-ens .ens-step--error { border-color: #f0566e; color: #f0566e; }
+.boa-ens .ens-step__l { flex: 1; }
+.boa-ens .ens-step__tx { color: var(--acc2); text-decoration: none; font-size: 12px; }
+@keyframes ens-pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+
+.boa-ens .ens-resolved { margin-top: 12px; font-size: 13px; color: var(--dim); }
+.boa-ens .ens-indep { margin-top: 6px; color: var(--acc); font-size: 13px; }
+.boa-ens .ens-indep--wait { color: var(--dim); }
+
+.boa-ens .ens-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.boa-ens .ens-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; transition: box-shadow .4s, border-color .4s; }
+.boa-ens .ens-card--flash { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc), 0 0 22px rgba(110,231,183,.25); }
+.boa-ens .ens-card__top { display: flex; gap: 11px; align-items: center; }
+.boa-ens .ens-av { width: 42px; height: 42px; border-radius: 9px; background: #0c1119; border: 1px solid var(--line); }
+.boa-ens .ens-av--ph { background: linear-gradient(135deg, #16203a, #0c1119); }
+.boa-ens .ens-name { font-size: 14px; color: var(--ink); word-break: break-all; }
+.boa-ens .ens-addr { font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 6px; }
+.boa-ens .ens-desc { margin-top: 10px; font-size: 13px; color: var(--ink); }
+.boa-ens .ens-usage { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+.boa-ens .ens-chip { font-size: 11px; color: var(--dim); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
+.boa-ens .ens-chip b { color: var(--acc); }
+.boa-ens .ens-card__links { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
+.boa-ens .ens-card__links a { color: var(--acc2); text-decoration: none; font-size: 12px; }
+.boa-ens .ens-mini { margin-left: auto; background: transparent; border: 1px solid var(--line); color: var(--dim); border-radius: 7px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
+.boa-ens .ens-mini:hover { color: var(--acc); border-color: rgba(110,231,183,.4); }
+
+.boa-ens .ens-copy { background: transparent; border: 0; color: var(--dim); cursor: pointer; font-size: 12px; padding: 0 2px; }
+.boa-ens .ens-copy:hover { color: var(--acc); }
+
+.boa-ens .ens-resolveout { margin-top: 12px; }
+.boa-ens .ens-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); }
+.boa-ens .ens-row span { color: var(--dim); width: 70px; }
+.boa-ens .ens-row--dim { color: var(--dim); }
+.boa-ens .ens-json { margin-top: 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-family: var(--mono); font-size: 12px; color: var(--acc); overflow: auto; max-height: 220px; }
+
+.boa-ens .ens-empty { color: var(--dim); padding: 24px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; }
+.boa-ens .ens-notice { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-size: 13px; color: var(--dim); margin-top: 18px; }
+.boa-ens .ens-notice code { color: var(--acc2); font-family: var(--mono); }
+.boa-ens .ens-notice--warn { border-color: rgba(244,184,96,.4); color: var(--warn); margin: 0 0 12px; }
+
+.boa-ens .ens-toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+.boa-ens .ens-toast { background: #11151f; border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 10px 13px; font-size: 13px; max-width: 360px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }

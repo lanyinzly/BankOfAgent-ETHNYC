@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AGENT_A, AGENT_B, MARKET_ID, RELAY_DISPLAY_URL, RELAY_URL, USING_MOCK } from './config';
+import { AGENT_A, AGENT_B, MARKET_ID, RELAY_DISPLAY_URL, RELAY_URL, ROUTER_APP_URL, USING_MOCK } from './config';
 import { relay, RelayError } from './lib/relayClient';
 import { usd } from './lib/foamm';
 import type {
@@ -19,6 +19,7 @@ import Pillars from './components/Pillars';
 import Explainer from './components/Explainer';
 import Slides from './components/Slides';
 import Reveal from './components/Reveal';
+import AgentFleet from './components/AgentFleet';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -222,6 +223,7 @@ export default function App() {
         <div className="nav__links">
           <a href="#about">About</a>
           <a href="#loop">Demo</a>
+          <a href="#fleet">Fleet</a>
           <a href="#integrations">Integrations</a>
         </div>
         <div className={`pill ${USING_MOCK ? 'pill--mock' : 'pill--live'}`}>
@@ -229,6 +231,26 @@ export default function App() {
           {USING_MOCK ? 'MOCK RELAY' : 'LIVE RELAY'}
           <span className="pill__url">{USING_MOCK ? RELAY_DISPLAY_URL : RELAY_URL}</span>
         </div>
+        <a
+          className="nav__router"
+          href={ROUTER_APP_URL}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '7px 13px',
+            borderRadius: '999px',
+            background: '#6ee7b7',
+            color: '#06210f',
+            fontWeight: 700,
+            fontSize: '13px',
+            textDecoration: 'none',
+          }}
+        >
+          Router App ↗
+        </a>
       </nav>
 
       <Hero
@@ -445,6 +467,9 @@ export default function App() {
         </StepCard>
         </div>
       </section>
+
+      {/* ── agent fleet · ENS identity (live Sepolia) ── */}
+      <AgentFleet />
 
       {/* ── integrations slide page ── */}
       <Slides />

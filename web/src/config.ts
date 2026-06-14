@@ -27,3 +27,29 @@ export const AGENT_B = 'agent-b.boa.eth';
 
 // The forward-compute market this demo trades.
 export const MARKET_ID = 'frontier-llm.q3';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENS identity layer (boa-ens-service). LIVE-only: every name/address/record is
+// read from real Sepolia ENS. Set VITE_ENS_API_BASE to the boa-ens-service URL.
+// ─────────────────────────────────────────────────────────────────────────────
+export const ENS_API_BASE = (
+  import.meta.env.VITE_ENS_API_BASE ??
+  import.meta.env.NEXT_PUBLIC_ENS_API_BASE ??
+  ''
+)
+  .trim()
+  .replace(/\/+$/, '');
+
+/** Read-only Sepolia RPC the FRONTEND uses to INDEPENDENTLY re-resolve ENS names
+ *  client-side (no private key ever in the browser). A public RPC is fine. */
+export const ENS_READ_RPC = (
+  import.meta.env.VITE_SEPOLIA_RPC_URL ??
+  import.meta.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ??
+  'https://ethereum-sepolia-rpc.publicnode.com'
+).trim();
+
+/** The model router/relay app (new-api console) — linked from the top nav. */
+export const ROUTER_APP_URL = (
+  import.meta.env.VITE_ROUTER_APP_URL ??
+  'https://boa-newapi-production.up.railway.app/'
+).trim();
