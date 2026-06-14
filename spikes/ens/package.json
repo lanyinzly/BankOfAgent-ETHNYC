@@ -1,0 +1,24 @@
+{
+  "name": "boa-ens-spike",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Sprint 0 go/no-go spike: prove the ENS rail for Bank of Agent (resolve a subname -> address, write + read back a boa.usage text record).",
+  "scripts": {
+    "spike": "tsx src/spike.ts",
+    "resolve:live": "tsx src/resolve-live.ts",
+    "writeread:local": "tsx src/write-read-local.ts",
+    "writeread:sepolia": "tsx src/write-read-sepolia.ts",
+    "sepolia:full": "tsx src/register-and-write-sepolia.ts",
+    "demo": "tsx src/demo.ts",
+    "fallback": "tsx src/static-map.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@ensdomains/ens-contracts": "^1.7.0",
+    "ganache": "^7.9.2",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "viem": "^2.52.2"
+  }
+}

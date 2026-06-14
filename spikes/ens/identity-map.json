@@ -1,0 +1,19 @@
+{
+  "note": "Fallback static identity map for Bank of Agent. If ENS RPC is unreachable during the demo, resolveStatic() serves the same name -> address + boa.usage record that the on-chain ENS rail holds. Demo line: 'ENS is wired up; on stage we read from this static mirror so the demo never blocks on an RPC.'",
+  "source": "spikes/ens (write-read-local.ts produces the exact same values)",
+  "updated": "2026-06-13",
+  "agents": {
+    "agent-a.boa-demo.eth": {
+      "address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "records": {
+        "boa.usage": "{\"agent\":\"agent-a.boa-demo.eth\",\"period\":\"2026-06-13\",\"model\":\"claude-opus\",\"requests\":97,\"tokensIn\":120443,\"tokensOut\":88210,\"digest\":\"0x8cac146f07b6f36414f20bb66b14c6bbce18b75af929b17d221add0b4d3c40b5\"}"
+      }
+    },
+    "agent-b.boa-demo.eth": {
+      "address": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "records": {
+        "boa.usage": "{\"agent\":\"agent-b.boa-demo.eth\",\"period\":\"2026-06-13\",\"model\":\"claude-haiku\",\"requests\":412,\"tokensIn\":58110,\"tokensOut\":40233,\"digest\":\"0x0000000000000000000000000000000000000000000000000000000000000000\"}"
+      }
+    }
+  }
+}
