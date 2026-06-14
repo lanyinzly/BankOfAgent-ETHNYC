@@ -7,16 +7,41 @@
 // Keys are server-side only (env). USDC = 6-dp ERC-20 at 0x3600… on Arc testnet.
 import express from "express";
 import { ethers } from "ethers";
-import { ARC, fmt, txUrl, addrUrl, usdcBalance, usdcTransfer } from "./arc.ts";
+import { ARC, ERC20_ABI, fmt, txUrl, addrUrl, provider, usdcBalance, usdcTransfer } from "./arc.ts";
 import { listTools, getTool, quote, priceAt, priceUnits, recordSale } from "./price.ts";
 import { buyWithX402 } from "./x402.ts";
 
 const ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 const AGENT_KEY = (process.env.AGENT_PRIVATE_KEY || "").trim();
+// Optional external seller relay. If unset, this app self-serves /infer (below),
+// so you only need ONE Arc service for the whole demo.
 const RELAY_URL = (process.env.RELAY_URL || "").trim().replace(/\/+$/, "");
 const SELLER = (process.env.RELAY_WALLET_ADDRESS || "").trim();
 const RECIPIENT = (process.env.RECIPIENT || SELLER).trim();
 const buyerAddress = AGENT_KEY ? new ethers.Wallet(AGENT_KEY).address : null;
+
+// ── built-in seller relay (x402) so a single service runs the whole demo ──────
+const FLOOR_PER_1K = Number(process.env.RELAY_PRICE_PER_1K || "0.02");
+const usedTx = new Set<string>();
+const floorFor = (tokens: number) => ethers.parseUnits(((tokens / 1000) * FLOOR_PER_1K).toFixed(6), ARC.decimals);
+async function verifyTransfer(txHash: string, payTo: string, required: bigint): Promise<boolean> {
+  const usdc = new ethers.Contract(ARC.usdc, ERC20_ABI, provider());
+  const receipt = await provider().getTransactionReceipt(txHash);
+  if (!receipt || receipt.status !== 1) return false;
+  for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== ARC.usdc.toLowerCase()) continue;
+    let parsed;
+    try {
+      parsed = usdc.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+    if (parsed?.name === "Transfer" && String(parsed.args[1]).toLowerCase() === payTo.toLowerCase() && (parsed.args[2] as bigint) >= required) {
+      return true;
+    }
+  }
+  return false;
+}
 
 export function buildApp() {
   const app = express();
@@ -45,8 +70,8 @@ export function buildApp() {
       chainId: ARC.chainId,
       buyer: buyerAddress,
       seller: SELLER || null,
-      relay: RELAY_URL || null,
-      ready: !!(AGENT_KEY && RELAY_URL && SELLER),
+      relay: RELAY_URL || "self (built-in /infer)",
+      ready: !!(AGENT_KEY && SELLER),
     }),
   );
 
@@ -78,16 +103,50 @@ export function buildApp() {
     }),
   );
 
+  // Built-in SELLER relay (x402): used by /api/agent/buy unless RELAY_URL points
+  // at a separate relay service. Verifies the buyer's USDC Transfer to SELLER on Arc.
+  app.post("/infer", async (req: any, res: any) => {
+    if (!SELLER) {
+      res.status(500).json({ error: "relay misconfigured: set RELAY_WALLET_ADDRESS" });
+      return;
+    }
+    const tokens = Math.max(1, Number(req.body?.max_tokens) || 256);
+    const required = floorFor(tokens);
+    const xpayment = req.headers["x-payment"] as string | undefined;
+    if (!xpayment) {
+      res.writeHead(402, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          x402Version: 1,
+          accepts: [{ scheme: "exact-onchain", network: ARC.key, asset: ARC.usdc, payTo: SELLER, maxAmountRequired: required.toString(), decimals: ARC.decimals, resource: "/infer", description: `inference up to ${tokens} tokens` }],
+          error: "payment required",
+        }),
+      );
+      return;
+    }
+    try {
+      const proof = JSON.parse(Buffer.from(xpayment, "base64").toString());
+      if (usedTx.has(proof.txHash)) return void res.status(409).json({ error: "payment already used" });
+      if (!(await verifyTransfer(proof.txHash, SELLER, required))) return void res.status(402).json({ error: "invalid payment" });
+      usedTx.add(proof.txHash);
+      res.json({ output: `inference(${tokens} tok) :: ${String(req.body?.prompt ?? "")}`.slice(0, 240), tokensCharged: tokens, settlement_tx: proof.txHash });
+    } catch (e: any) {
+      res.status(400).json({ error: `bad payment: ${e?.message || e}` });
+    }
+  });
+
   app.post(
     "/api/agent/buy",
     wrap(async (req, res) => {
       const t = getTool(String(req.body?.tool || "gpt-4o"));
       if (!t) return err(res, 404, "unknown tool");
-      if (!AGENT_KEY || !RELAY_URL || !SELLER) {
-        return err(res, 503, "buy disabled: set AGENT_PRIVATE_KEY, RELAY_URL, RELAY_WALLET_ADDRESS");
+      if (!AGENT_KEY || !SELLER) {
+        return err(res, 503, "buy disabled: set AGENT_PRIVATE_KEY + RELAY_WALLET_ADDRESS");
       }
       const maxTokens = Math.max(1, Math.min(Number(req.body?.maxTokens) || 512, 8192));
       const prompt = String(req.body?.prompt || "price one agent tool call");
+      // self-serve the relay unless an external RELAY_URL is configured
+      const relayUrl = RELAY_URL || `https://${req.headers.host}`;
 
       const soldBefore = t.soldUnits;
       const discovered = priceAt(t, maxTokens, soldBefore);
@@ -95,7 +154,7 @@ export function buildApp() {
 
       const [buyerBefore, sellerBefore] = await Promise.all([usdcBalance(buyerAddress!), usdcBalance(SELLER)]);
 
-      const out = await buyWithX402({ relayUrl: RELAY_URL, agentKey: AGENT_KEY, payUnits: pay, prompt, maxTokens });
+      const out = await buyWithX402({ relayUrl, agentKey: AGENT_KEY, payUnits: pay, prompt, maxTokens });
 
       const soldAfter = recordSale(t.id);
       const newPrice = priceAt(t, maxTokens, soldAfter);
