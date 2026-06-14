@@ -8,6 +8,9 @@
     "start": "tsx src/server.ts",
     "setup:hts": "tsx src/setup-hts.ts",
     "spike": "tsx src/hcs-spike.ts",
+    "demo:agentic": "tsx src/agentic-demo.ts",
+    "schedule": "tsx src/schedule-settlement.ts",
+    "agent-id": "tsx src/agent-id.ts",
     "fallback": "tsx src/fallback.ts",
     "verify-read": "tsx src/verify-read-rail.ts",
     "typecheck": "tsc --noEmit"

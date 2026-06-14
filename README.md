@@ -146,9 +146,12 @@ claim on future compute changing hands before anyone consumes it.**
   **x402** protocol (USDC on Arc, no human in the loop).
 - **Identity & delivery layer — ENS.** Each agent is a real ENS subname; metered
   usage digests are written back as text records for independent verification.
-- **Proof layer — Hedera HCS.** Every call becomes a router-signed usage receipt
-  anchored to a Hedera Consensus Service topic — a tamper-evident, on-chain twin
-  of the ENS usage digest.
+- **Proof layer — Hedera (HCS + HTS).** Every call becomes a router-signed usage
+  receipt anchored to a Hedera Consensus Service topic — a tamper-evident, on-chain
+  twin of the ENS usage digest. The Hedera track also **settles natively in HTS USDC**
+  (agent → provider, FOAMM-priced), mints **HCS-14** Universal Agent IDs, and queues
+  retainers via **Scheduled Transactions**. See [`spikes/hedera`](./spikes/hedera) —
+  live topic [`0.0.9227461`](https://hashscan.io/testnet/topic/0.0.9227461).
 - **Forward layer — ERC-7527 + FOAMM.** Vouchers are minted, transferred, and
   redeemed as transferable claims on future inference, priced by the FOAMM
   premium curve. (See the sibling [`EIP7527`](https://github.com/lanyinzly/EIP7527)
@@ -223,7 +226,8 @@ addresses and the live transaction hashes.
 - **ENS** — agent identity and verifiable usage records (real Sepolia subnames).
 - **Circle — Arc · USDC · x402** — permissionless USDC settlement rail, the unit
   of account, and the agent-to-agent pay-per-call protocol.
-- **Hedera — HCS / HTS** — tamper-evident, signed proof-of-consumption.
+- **Hedera — HCS · HTS · HCS-14 · Scheduled Transactions** — tamper-evident signed
+  proof-of-consumption, native USDC settlement, portable agent identity, and retainers.
 - **ERC-7527 + FOAMM** — the transferable voucher standard and the bonding-curve
   premium function that prices it and emits the forward curve.
 

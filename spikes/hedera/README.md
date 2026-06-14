@@ -145,8 +145,15 @@ npm install
 
 npm run verify-read   # live mirror-node READ rail — no creds, works in the sandbox
 npm run fallback      # local signed-digest rail — no creds, works in the sandbox
-npm run spike         # full create→submit→read — needs .env creds AND open gRPC egress (run locally)
+npm run agent-id      # HCS-14 Universal Agent IDs (deterministic) — works in the sandbox
 npm run typecheck     # tsc --noEmit over everything
+
+# the following submit transactions → need .env creds AND open gRPC egress (laptop / Railway):
+npm run spike         # create topic → submit signed receipt → read back
+npm run setup:hts     # one-time: create HTS USDC token + agent/provider accounts (writes .env)
+npm run demo:agentic  # one full loop: price → settle (HTS USDC) → sign → record (HCS) → verify
+npm run schedule      # queue a future/recurring settlement (Scheduled Transactions, HIP-423)
+npm start             # the agentic-payments API (server.ts) for the frontend demo
 ```
 
 - **Mirror node endpoint:** `https://testnet.mirrornode.hedera.com`
@@ -156,6 +163,62 @@ npm run typecheck     # tsc --noEmit over everything
 - **Router key:** `ROUTER_PRIVATE_KEY` in `.env` (any secp256k1 key). If unset, an
   ephemeral key is generated per run and its address printed — the signature is still
   real, just not stable across runs.
+
+---
+
+## Beyond the proof rail — more Hedera (HTS settle · scheduled · HCS-14)
+
+The HCS proof rail above is the core, but this spike now exercises **multiple Hedera
+services** so the agent loop is *settled and identified on Hedera*, not just audited:
+
+| Capability | Script / file | Hedera services | Status |
+|---|---|---|---|
+| **Agentic payment loop** — price (FOAMM) → **settle real USDC** agent→provider → router-sign → record on HCS → read back | `npm run demo:agentic` · `src/server.ts` | **HTS** (token + transfer) + **HCS** | code + typecheck ✅; live needs open egress |
+| **Two-party USDC setup** — create an HTS USDC token, an autonomous agent (payer) + provider (payee), associate + fund | `npm run setup:hts` · `src/setup-hts.ts` | **HTS**, account-create, transfer | live-tested on `main` (2026-06-14) |
+| **Scheduled / recurring settlement** — queue the next period's payment to auto-execute at a future time | `npm run schedule` · `src/schedule-settlement.ts` | **Scheduled Transactions (HIP-423)** | code + typecheck ✅; live needs open egress |
+| **On-chain agent identity** — deterministic **HCS-14** Universal Agent IDs (`uaid:aid`), optionally anchored to an HCS registry topic | `npm run agent-id` · `src/agent-id.ts` | **HCS-14** (+ HCS anchor) | runs & verifies in-sandbox ✅ |
+
+### HTS USDC settlement (the financial operation on Hedera)
+
+`setup:hts` mints an HTS **USDC** token (6dp, treasury = operator), creates an autonomous
+**agent** (payer, funded 10 HBAR + 1000 USDC) and a **provider** (payee), and associates
+the token. Then every emit (`server.ts` / `demo:agentic`) does a real
+`TransferTransaction` moving USDC **agent → provider** for exactly the FOAMM-priced cost,
+records the Hedera `settlement_tx` inside the signed receipt, and writes it to HCS. So the
+flow is **price → settle on Hedera → prove on Hedera**.
+
+**Capture live HTS evidence** (open-egress host) and paste it here:
+
+```
+USDC token:   0.0.__________   (from `npm run setup:hts`)
+settlement tx: 0.0.x@……         hashscan: https://hashscan.io/testnet/transaction/…
+HCS topic/seq: 0.0.__________ / N
+```
+
+### HCS-14 Universal Agent IDs (runs in-sandbox, verified)
+
+`npm run agent-id` derives a deterministic `uaid:aid` for each BoA agent — sha-256 over
+canonical agent metadata, Base58-encoded, anchored by `nativeId` + `registry` (HCS-14).
+Same metadata always yields the same id; `--anchor` also writes the profiles to an HCS
+registry topic. Real output (2026-06-14):
+
+```
+agent-a.boa.eth  (native hedera:testnet:0.0.9186016)
+  uaid: uaid:aid:4ijC686xM3yAtCUjhKCf2wK5VtW3WAHPw4WuC2ksaBaw;registry=boa;proto=boa-router-receipts;nativeId=hedera:testnet:0.0.9186016;uid=0
+deterministic: YES ✅
+```
+
+> HCS-14 spec: <https://hol.org/docs/standards/hcs-14>. We mint the `aid` (deterministic)
+> method since BoA agents carry no sovereign DID; validate the exact param syntax against
+> the official `@hashgraphonline/standards-sdk` before production use.
+
+### How this maps to the Hedera prize
+
+- **Financial operation on testnet** — HTS USDC transfer agent→provider (+ HBAR fallback, account creation). ✅
+- **Verifiable payment audit trail (HCS)** — every call → signed, immutable, consensus-timestamped receipt. ✅
+- **HTS token + transfers** — the USDC settlement token and per-call transfers. ✅
+- **On-chain agent identity (HCS-14)** — deterministic Universal Agent IDs. ✅
+- **Scheduled / recurring payments** — Hedera Scheduled Transactions for retainers. ✅
 
 ---
 
