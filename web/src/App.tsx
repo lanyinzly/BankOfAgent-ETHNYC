@@ -11,10 +11,14 @@ import type {
   TransferResult,
   UsageReceipt,
 } from './types';
-import PriceCurve from './components/PriceCurve';
 import StepCard, { type StepStatus } from './components/StepCard';
 import UsageReceiptView from './components/UsageReceiptView';
 import ConnectAgent from './components/ConnectAgent';
+import Hero from './components/Hero';
+import Pillars from './components/Pillars';
+import Explainer from './components/Explainer';
+import Slides from './components/Slides';
+import Reveal from './components/Reveal';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -208,54 +212,58 @@ export default function App() {
   const busyIs = (t: string) => busy === t;
 
   return (
-    <div className="app">
-      {/* ── header ── */}
-      <header className="hdr">
-        <div className="hdr__brand">
-          <span className="hdr__logo" aria-hidden="true" />
-          <div>
-            <h1 className="hdr__title">Bank of Agent</h1>
-            <p className="hdr__tag">The forward market for AI compute</p>
-          </div>
+    <div className="app" id="top">
+      {/* ── top nav ── */}
+      <nav className="nav">
+        <a className="nav__brand" href="#top">
+          <span className="nav__logo" aria-hidden="true" />
+          <span className="nav__name">BANK OF AGENT</span>
+        </a>
+        <div className="nav__links">
+          <a href="#about">About</a>
+          <a href="#loop">Demo</a>
+          <a href="#integrations">Integrations</a>
         </div>
         <div className={`pill ${USING_MOCK ? 'pill--mock' : 'pill--live'}`}>
           <span className="pill__dot" />
-          {USING_MOCK ? 'MOCK RELAY · in-browser' : 'LIVE RELAY'}
+          {USING_MOCK ? 'MOCK RELAY' : 'LIVE RELAY'}
           <span className="pill__url">{USING_MOCK ? RELAY_DISPLAY_URL : RELAY_URL}</span>
         </div>
-      </header>
+      </nav>
 
-      {/* ── hero: the price curve is the headline ── */}
-      <section className="hero">
-        <PriceCurve price={price} lastBuy={lastBuy} />
-        <aside className="hero__side card">
-          <h2 className="card__title">The thesis</h2>
-          <p className="hero__thesis">
-            Compute trades like a subscription because it has no <b>forward price</b>. BoA prices a
-            transferable claim on future inference with <b>FOAMM</b> — so the moment demand is claimed,
-            the curve moves. <span className="hero__em">Watch the premium climb as you buy.</span>
+      <Hero
+        price={price}
+        lastBuy={lastBuy}
+        onRunLoop={runFullLoop}
+        auto={auto}
+        busy={busy != null}
+        autoStep={autoStep}
+      />
+
+      <Pillars />
+      <Explainer />
+
+      {/* ── the economic loop ── */}
+      <section className="loop" id="loop">
+        <Reveal>
+          <p className="section__eyebrow">The economic loop · live</p>
+          <h2 className="section__h">
+            A priced claim on future compute, changing hands before anyone consumes it.
+          </h2>
+          <p className="loop__intro">
+            Run it end to end against the in-browser mock relay — or press “Run the live demo”. Each
+            step is a real relay call; the FOAMM premium moves the moment capacity is claimed.
           </p>
-          <button
-            className="btn btn--primary btn--xl"
-            onClick={runFullLoop}
-            disabled={auto || busy != null}
-          >
-            {auto ? `running step ${autoStep ?? ''}…` : '▶ Run full loop'}
-          </button>
-          <p className="hero__loophint">
-            buy → call → transfer → redeem → call · the complete economic loop, end to end
-          </p>
-        </aside>
-      </section>
+        </Reveal>
 
-      {error && (
-        <div className="toast" role="alert" onClick={() => setError(null)}>
-          [ERROR] {error} <span className="toast__x">DISMISS</span>
-        </div>
-      )}
+        {error && (
+          <div className="toast" role="alert" onClick={() => setError(null)}>
+            [ERROR] {error} <span className="toast__x">DISMISS</span>
+          </div>
+        )}
 
-      {/* ── the loop, step by step ── */}
-      <div className="grid">
+        {/* the loop, step by step */}
+        <div className="grid">
         {/* 1 · identity */}
         <StepCard
           n={1}
@@ -435,7 +443,11 @@ export default function App() {
           </button>
           {callB && <CallResult result={callB} />}
         </StepCard>
-      </div>
+        </div>
+      </section>
+
+      {/* ── integrations slide page ── */}
+      <Slides />
 
       {/* ── connect your agent ── */}
       <ConnectAgent />
@@ -481,8 +493,17 @@ export default function App() {
       </section>
 
       <footer className="ftr">
-        Mock relay implements interface contract v0 · markets · ERC-7527 FOAMM · ENS identity · metered{' '}
-        <code>/v1</code>. Set <code>NEXT_PUBLIC_RELAY_URL</code> to go live with zero code changes.
+        <div className="ftr__row">
+          <span>Bank of Agent · built at ETHNYC</span>
+          <a href="https://erc7527.com" target="_blank" rel="noreferrer">
+            ERC-7527 · erc7527.com →
+          </a>
+        </div>
+        <p className="ftr__fine">
+          Mock relay implements interface contract v0 · markets · ERC-7527 FOAMM · ENS identity ·
+          Hedera + Arc · metered <code>/v1</code>. Set <code>NEXT_PUBLIC_RELAY_URL</code> to go live
+          with zero code changes.
+        </p>
       </footer>
     </div>
   );

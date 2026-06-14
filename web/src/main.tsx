@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import './landing.css';
 import { USING_MOCK } from './config';
 
 // Start the in-browser mock relay BEFORE the first render so no request can race
