@@ -96,3 +96,8 @@ export async function resolveLive(name: string): Promise<{ address: string | nul
   ]);
   return { address, boaUsage };
 }
+
+/** Reverse-resolve an address → its primary ENS name (null if it has none). */
+export async function reverseName(address: `0x${string}`): Promise<string | null> {
+  return reader.getEnsName({ address }).catch(() => null);
+}

@@ -9,6 +9,7 @@ import {
   spawnAgent,
   claimOwnership,
   resolveLive,
+  reverseName,
   type AgentWallet,
   type MintResult,
 } from '../lib/ensClient';
@@ -39,6 +40,7 @@ export default function AgentIdentityWidget() {
   const [verified, setVerified] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [usingDefault, setUsingDefault] = useState(true); // a default agent is connected until you make your own
+  const [revName, setRevName] = useState<string | null>(null); // connected wallet's ENS name (reverse-resolved)
 
   // restore previous identity (else stay on the default connected agent)
   useEffect(() => {
@@ -60,6 +62,20 @@ export default function AgentIdentityWidget() {
 
   useEffect(() => {
     if (agent) localStorage.setItem(LS_KEY, JSON.stringify({ agent, mint }));
+  }, [agent, mint]);
+
+  // Reverse-resolve a connected wallet → its ENS name, so the widget shows a name
+  // (not a raw address) whenever the agent actually has one on-chain.
+  useEffect(() => {
+    setRevName(null);
+    if (!agent?.address || mint) return;
+    let live = true;
+    reverseName(agent.address).then((n) => {
+      if (live) setRevName(n);
+    });
+    return () => {
+      live = false;
+    };
   }, [agent, mint]);
 
   const configured = ENS_API_BASE !== '';
@@ -144,8 +160,11 @@ export default function AgentIdentityWidget() {
     }
   }, [mint]);
 
-  // What the collapsed pill shows: the live agent's ENS/address, else the default.
-  const connectedName = mint?.ensName ?? (usingDefault ? DEFAULT_AGENT.ens : agent ? trunc(agent.address) : null);
+  // What the collapsed pill shows: prefer the ENS name (minted, default, or the
+  // connected wallet's reverse-resolved name); fall back to the address only when
+  // the wallet genuinely has no ENS yet.
+  const connectedName =
+    mint?.ensName ?? (usingDefault ? DEFAULT_AGENT.ens : revName ?? (agent ? trunc(agent.address) : null));
 
   if (!open) {
     return (
@@ -210,8 +229,12 @@ export default function AgentIdentityWidget() {
         <div className="aiw-body">
           <div className="aiw-row">
             <span>agent</span>
-            <code className="aiw-mono" title="copy" onClick={() => navigator.clipboard.writeText(agent.address)}>
-              {trunc(agent.address)}
+            <code
+              className="aiw-mono"
+              title={revName ? `${revName} · click to copy address` : 'copy'}
+              onClick={() => navigator.clipboard.writeText(agent.address)}
+            >
+              {revName ?? trunc(agent.address)}
             </code>
           </div>
           <input
