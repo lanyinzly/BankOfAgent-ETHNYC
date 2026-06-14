@@ -22,6 +22,7 @@ import Reveal from './components/Reveal';
 import AgentFleet from './components/AgentFleet';
 import AgentIdentityWidget from './components/AgentIdentityWidget';
 import AgentPaymentsDemo from './components/AgentPaymentsDemo';
+import AgentArcDemo from './components/AgentArcDemo';
 import PriceDock from './components/PriceDock';
 import GuidedNarration from './components/GuidedNarration';
 import ConnectTutorial from './components/ConnectTutorial';
@@ -265,6 +266,7 @@ export default function App() {
           <a href="#loop">Demo</a>
           <a href="#fleet">Fleet</a>
           <a href="#payments">Payments</a>
+          <a href="#arc">Arc</a>
           <a href="#integrations">Integrations</a>
         </div>
         <a
@@ -552,6 +554,9 @@ export default function App() {
 
       {/* ── agent payments · Hedera (live testnet: HTS settle + HCS audit) ── */}
       <AgentPaymentsDemo />
+
+      {/* ── agent economy · Arc (price discovery + x402 USDC settlement) ── */}
+      <AgentArcDemo />
 
       {/* ── connect your agent ── */}
       <ConnectAgent />

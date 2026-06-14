@@ -63,3 +63,13 @@ export const HEDERA_API = (
 )
   .trim()
   .replace(/\/+$/, '');
+
+/** BoA × Arc agent-economy API (boa-arc-service). LIVE-only: agent-native price
+ *  discovery + x402 USDC settlement on Arc testnet. Empty → "configure" notice. */
+export const ARC_API = (
+  import.meta.env.VITE_BOA_ARC_API ??
+  import.meta.env.NEXT_PUBLIC_BOA_ARC_API ??
+  ''
+)
+  .trim()
+  .replace(/\/+$/, '');

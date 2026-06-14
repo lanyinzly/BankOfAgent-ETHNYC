@@ -17,6 +17,9 @@ interface ImportMetaEnv {
   /** BoA × Hedera agentic-payments API (boa-hedera-service). */
   readonly VITE_BOA_HEDERA_API?: string;
   readonly NEXT_PUBLIC_BOA_HEDERA_API?: string;
+  /** BoA × Arc agent-economy API (boa-arc-service). */
+  readonly VITE_BOA_ARC_API?: string;
+  readonly NEXT_PUBLIC_BOA_ARC_API?: string;
 }
 
 interface ImportMeta {
