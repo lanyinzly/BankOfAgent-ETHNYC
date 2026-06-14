@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Bank of Agent">
+  <rect width="120" height="120" rx="26" fill="#ffffff" />
+  <g transform="translate(10 10)" fill="none" stroke="#0b0e14" stroke-width="12.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 82 L50 18 L81 82" />
+    <path d="M31 71 C 43 90 57 90 69 71 C 75 60 63 57 58 66" />
+  </g>
+</svg>
