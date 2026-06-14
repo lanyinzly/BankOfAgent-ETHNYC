@@ -39,26 +39,29 @@ address from it with `ecrecover` — no secret needed to verify.
 
 ---
 
-## TL;DR verdict — **GO**
+## TL;DR verdict — **GO (PASS, verified live end-to-end)**
 
-The proof rail is sound: the receipt/sign/verify logic is proven, the mirror-node
-**read** rail is proven **live on testnet**, and the fallback rail is proven green.
-The full **write** round-trip (create topic + submit) is **READY and verified to the
-network boundary** but cannot execute *inside this Claude-Code-web sandbox* — the
-managed environment only permits outbound **HTTPS/443**, and Hedera consensus nodes
-require **gRPC on ports 50211/50212**. Run `npm run spike` from any host with open
-egress (your local terminal) and it closes the round-trip in ~10s.
+The full create→submit→read round-trip **passed live on Hedera testnet** on 2026-06-14:
+a router-signed usage receipt was written to HCS and read back byte-identical from the
+mirror node. The receipt/sign/verify logic, the mirror-node read rail, and the fallback
+rail are all proven green.
 
 | Rail | What it proves | Status |
 |------|----------------|--------|
 | **Mirror-node READ** (`npm run verify-read`) | read + base64-decode a real HCS message off live testnet | ✅ **PASS** (live, no creds) |
-| **Receipt sign + verify** (inside `spike`) | router signs the receipt; signature recovers the router address | ✅ **PASS** (live, see evidence) |
+| **Receipt sign + verify** (inside `spike`) | router signs the receipt; signature recovers the router address | ✅ **PASS** (live) |
 | **Fallback digest rail** (`npm run fallback`) | same signed receipt → sha-256 digest → local DB → verify | ✅ **PASS** (live, no creds) |
-| **Full HCS write+read** (`npm run spike`) | create topic → submit signed receipt → read back identical | ⏳ **READY — blocked by sandbox egress (gRPC 50211/50212), runs locally** |
+| **Full HCS write+read** (`npm run spike`) | create topic → submit signed receipt → read back identical | ✅ **PASS** — topic [`0.0.9227461`](https://hashscan.io/testnet/topic/0.0.9227461) seq `1` (2026-06-14) |
 
-> **Why "GO" despite the ⏳:** the only thing between us and a green end-to-end is the
-> *sandbox's* network policy, not the code, the API, or the credentials — all of which
-> are verified. The same script + `.env` runs to PASS on a normal host.
+**Live result:** operator `0.0.9186016` → topic
+[`0.0.9227461`](https://hashscan.io/testnet/topic/0.0.9227461), sequence number `1`,
+consensus `1781397188.243630630`, `bytes round-trip: MATCH`, `router signature: VALID`.
+
+> **One operational note:** `npm run spike` must run from a host with open **gRPC**
+> egress (a normal laptop / terminal). It cannot run *inside* the Claude-Code-web
+> sandbox, which only permits HTTPS/443 while Hedera consensus nodes need gRPC
+> 50211/50212 — see "The sandbox egress blocker". The PASS above was produced from a
+> teleported local terminal; reads (`verify-read`) and the fallback run anywhere.
 
 ---
 
@@ -169,25 +172,38 @@ message read back + base64-decoded OK: 263 bytes
 PASS ✅  mirror-node read + base64-decode rail is live on testnet.
 ```
 
-### ✅ `npm run spike` — receipt built + router-signed + signature verified, then blocked at the gRPC network boundary
+### ✅ `npm run spike` — full create→submit→read round-trip (live testnet, 2026-06-14)
+
+Executed from a teleported local terminal (open gRPC egress):
 
 ```
 === BoA HCS proof-rail spike (Hedera testnet) ===
 operator:              0.0.9186016
-router signer address: 0xC90901f50C768B7eCe11C26B5acF50e5c7A134A0
+router signer address: 0x0AA6C6090c9d733C226BD55A6089E2A31aCc3721
 
-[1] router-signed usage receipt:
-{ "request_id": "req_31257ebd-…", … "router_signature": "0x71b079ce…1b" }
-    recovered signer (anyone can verify): 0xC90901f50C768B7eCe11C26B5acF50e5c7A134A0   ← signature VALID
+[1] router-signed usage receipt: { "request_id": "req_e877d428-…", … }
+    recovered signer (anyone can verify): 0x0AA6C6090c9d733C226BD55A6089E2A31aCc3721   ← signature VALID
+[2] created topic: 0.0.9227461
+[3] submitted receipt → consensus sequence number: 1
+[4] reading back: https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.9227461/messages/1
+    sequence_number: 1   consensus_timestamp: 1781397188.243630630
 
-FAIL ❌  could not reach a Hedera consensus node (gRPC).
-  …consensus nodes speak gRPC on ports 50211/50212, but this environment only allows
-  outbound HTTPS/443. → Run this spike from a host with open egress (your local terminal).
+=== RESULT ===
+topicId:          0.0.9227461
+sequenceNumber:   1
+receipt digest:   0x1fa6563e54fd3d8b84fc822ca0fd96eeee736690ba8fdd64e6aa8dd1d8ec915d
+bytes round-trip: MATCH
+router signature: VALID (recovered 0x0AA6C6090c9d733C226BD55A6089E2A31aCc3721)
+hashscan:         https://hashscan.io/testnet/topic/0.0.9227461
+
+PASS ✅  proof rail works: a router-signed receipt was submitted to HCS and read back identical from the mirror node.
 ```
 
-The receipt is built and the router signature verifies (recovered signer == router
-address). The failure is purely the sandbox's 443-only egress hitting the consensus
-gRPC port — see "The sandbox egress blocker" above.
+The topic, message, and read-back are all on live testnet — verify independently at
+<https://hashscan.io/testnet/topic/0.0.9227461> or
+`GET https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.9227461/messages/1`.
+(Run *inside* the Claude-Code-web sandbox this step instead fails at the gRPC boundary —
+see "The sandbox egress blocker".)
 
 ### ✅ `npm run fallback` — signed-receipt + digest rail
 
@@ -204,10 +220,10 @@ PASS ✅  fallback rail works: router-signed receipt + sha-256 digest persisted 
 
 ---
 
-## Closing the gate (run the write half on an open-egress host)
+## Reproducing the live run (open-egress host)
 
-Either run it on your laptop, or `--teleport`/`--remote` this session to your terminal,
-then:
+The gate was closed by teleporting the session to a local terminal (open gRPC egress)
+and running the spike. To reproduce on any laptop:
 
 ```bash
 cd spikes/hedera
@@ -218,12 +234,15 @@ npm run spike
 
 A successful run prints `topicId`, the consensus `sequenceNumber`, the decoded JSON
 read back from the mirror node, `bytes round-trip: MATCH`, `router signature: VALID`,
-a HashScan link, and a final `PASS ✅`. **Paste the real values here once it runs:**
+a HashScan link, and a final `PASS ✅`.
+
+**Closed — live testnet result (2026-06-14):**
 
 ```
-topicId:        0.0.__________   (PENDING — fill after an open-egress run)
-sequenceNumber: __________
-hashscan:       https://hashscan.io/testnet/topic/0.0.__________
+topicId:        0.0.9227461        ✅
+sequenceNumber: 1
+hashscan:       https://hashscan.io/testnet/topic/0.0.9227461
+mirror node:    https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.9227461/messages/1
 ```
 
 ---
