@@ -6,16 +6,20 @@ prompt + code to integrate a **live, visual** demo into your existing frontend.
 
 ### Status — built & verified live on Hedera testnet (2026-06-14)
 
-The API (`src/server.ts`) was run locally and exercised end-to-end. Each `emit`:
-- **paid a real HBAR micropayment** operator `0.0.9186016` → payee `0.0.9228118`
-  (mirror node confirmed `CRYPTOTRANSFER` / `SUCCESS`, `+0.01 ℏ`; payee balance grew to
-  `0.02 ℏ` after 2 calls);
+The API (`src/server.ts`) was run locally and exercised end-to-end. **Settlement is a real
+two-party USDC transfer on Hedera** (HTS), for exactly the FOAMM-priced cost. Each `emit`:
+- **settled in USDC on Hedera**: agent `0.0.9228386` → provider `0.0.9228387`, HTS token
+  `0.0.9228385` (USDC, 6 dp). Mirror node confirmed the `token_transfers`
+  (`-4713 / +4713` base units = `0.004713 USDC`, `SUCCESS`); **provider balance grew to
+  `0.009430 USDC` after 2 calls**, agent went `1000 → 999.990570 USDC`. The transferred
+  amount **equals** the priced cost.
 - **discovered the price upward** across calls: `1.0000 → 1.0007 → 1.0014`;
 - **signed + recorded** the receipt on HCS (`signatureValid: true`, `bytesMatch: true`),
-  with `settlement_tx` set to the live Hedera transfer id.
+  with `settlement_tx` set to the live USDC-transfer id.
 
-So the full agentic-payment loop — **price → pay on Hedera → sign → audit on Hedera** —
-is working; the section below is how to wire it to your frontend and deploy on Railway.
+So the full agentic-payment loop — **price → settle USDC on Hedera → sign → audit on
+Hedera** — is working, agent-to-provider. The sections below wire it to your frontend,
+deploy on Railway, and show how other agent stacks plug in (§9).
 
 ---
 
@@ -26,7 +30,14 @@ is working; the section below is how to wire it to your frontend and deploy on R
 > neutral, machine-readable price for "what an agent should pay for a tool call." Bank of
 > Agent is the missing layer: an **on-chain, permissionless, agent-native price-discovery
 > and settlement mechanism** that prices *any* agent tool call — inference, an API, or
-> another agent's service — and settles it on Hedera with a signed, verifiable receipt.
+> another agent's service — and settles it **in USDC on Hedera** with a signed, verifiable
+> receipt.
+
+**Where value lives:** **Hedera is BoA's settlement + audit layer.** The unit of account
+is **USDC**, issued natively on Hedera via **HTS**; each agent call is settled
+**agent → service-provider** in that USDC token, at machine speed, and the signed receipt
+is recorded on **HCS**. (Fiat / cross-chain on-ramps like Arc fund an agent's USDC balance;
+once funded, pricing, settlement, and audit all happen on Hedera.)
 
 Three things to emphasize to judges:
 
@@ -52,8 +63,8 @@ agent calls a tool
    │
    ├─ 1. PRICE      FOAMM premium discovered on-chain:  price_before → price_after
    │                (the market moving as demand accrues — visible, permissionless)
-   ├─ 2. SETTLE     pay for the call  (USDC cost; optionally a real HBAR micropayment
-   │                on Hedera — see §6 — so settlement_tx is a live Hedera tx)
+   ├─ 2. SETTLE     real USDC transfer (HTS) AGENT → PROVIDER for exactly the priced cost
+   │                (settlement_tx is a live Hedera tx; Hedera is the settlement layer — see §6)
    ├─ 3. SIGN       BoA's router signs the usage receipt  (anyone can ecrecover it)
    ├─ 4. RECORD     submit the signed receipt to Hedera HCS  → consensus seq # + timestamp
    └─ 5. VERIFY     read it back from the mirror node — immutable, ordered, auditable
@@ -63,12 +74,12 @@ agent calls a tool
 
 | Requirement / bonus | How BoA hits it |
 |---|---|
-| AI agent executing a payment / financial operation on Hedera testnet | each call settles + writes a signed payment receipt as a paid HCS transaction (and, with §6, a real HBAR transfer) |
-| Use Hedera SDKs directly | yes — `@hashgraph/sdk` (HCS + optional HTS/HBAR transfer) |
-| **Verifiable payment audit trails using HCS** (bonus) | the core: every receipt is a signed, immutable, consensus-timestamped HCS message |
-| x402 pay-per-request (bonus) | BoA is the price oracle x402 charges against — natural fit |
+| AI agent executing a payment / token transfer on Hedera testnet | ✅ each call is a real **agent → provider USDC (HTS) transfer** on Hedera, plus a signed receipt on HCS |
+| Use Hedera SDKs directly | yes — `@hashgraph/sdk` (HTS token + transfer, HCS, account creation) |
+| **HTS tokens / transfers** (bonus) | ✅ the USDC unit of account is an **HTS token**; settlement is an HTS transfer |
+| **Verifiable payment audit trails using HCS** (bonus) | ✅ every receipt is a signed, immutable, consensus-timestamped HCS message carrying its settlement tx |
+| x402 pay-per-request (bonus) | BoA is the price oracle + settlement x402 charges through — see §9 |
 | On-chain agent identity HCS-14 (bonus) | `agent_ens` → swap for an HCS-14 Universal Agent ID; roadmap |
-| HTS tokens / fees (bonus) | `membership_token_id` → an HTS membership/quota token; roadmap |
 | Scheduled / recurring payments (bonus) | recurring agent subscriptions via Hedera Scheduled Transactions; roadmap |
 
 ---
@@ -96,7 +107,7 @@ Your frontend (existing app)            BoA Hedera API (new Railway service)    
 ────────────────────────────            ────────────────────────────────────       ──────────────
  <AgentPaymentsDemo/>          ──▶  GET /api/receipts/emit/stream (SSE)
    "Run a paid agent call"            1 PRICE   FOAMM premium (on-chain curve)
-   price ticker + curve               2 SETTLE  cost in USDC (+ optional HBAR tx)
+   price ticker + curve               2 SETTLE  USDC (HTS) agent → provider ─gRPC─▶ token transfer
    5-step pipeline           ◀── SSE ─ 3 SIGN    router signs (keys live HERE only)
    audit-log table                    4 RECORD  submit to ONE persistent HCS topic ─gRPC─▶ seq#
                                        5 VERIFY  read back from mirror node ──HTTPS──▶ confirm
@@ -313,15 +324,33 @@ app.get("/api/receipts", async (_req, res) => {
 app.listen(PORT, () => console.log(`BoA Hedera API on :${PORT}`));
 ```
 
-### A3. Start command + Railway
+### A3. One-time HTS-USDC setup (`npm run setup:hts`)
 
-- `package.json` script: `"start": "tsx src/server.ts"`
+Before first run, create the USDC token + the two party accounts. `src/setup-hts.ts`
+(committed) does it from the funded operator and appends the ids/keys to `.env`:
+
+```bash
+cd spikes/hedera
+npm run setup:hts
+# creates: USDC HTS token (treasury=operator), AGENT account (payer, funded 1000 USDC + 10ℏ),
+#          PROVIDER account (payee). Appends HEDERA_USDC_TOKEN_ID / HEDERA_AGENT_ID /
+#          HEDERA_AGENT_KEY / HEDERA_PROVIDER_ID / HEDERA_PROVIDER_KEY to .env.
+```
+
+### A4. Start command + Railway
+
+- `package.json` scripts: `"start": "tsx src/server.ts"`, `"setup:hts": "tsx src/setup-hts.ts"`.
 - Railway: New service → this repo → **Root Directory `spikes/hedera`**, Build `npm install`, Start `npm start`.
-- **Variables:** `HEDERA_OPERATOR_ID`, `HEDERA_OPERATOR_KEY`, `HEDERA_OPERATOR_KEY_TYPE=ECDSA`,
-  `HEDERA_MIRROR_NODE_URL`, `ROUTER_PRIVATE_KEY`, `ALLOWED_ORIGIN=<frontend url>`,
-  `HCS_TOPIC_ID` *(empty first deploy → read it from logs → set it → redeploy)*.
-  Railway sets `PORT`.
-- Smoke test: `curl https://<svc>.up.railway.app/api/health` then `curl -X POST https://<svc>.up.railway.app/api/receipts/emit`.
+- **Variables:**
+  - core: `HEDERA_OPERATOR_ID`, `HEDERA_OPERATOR_KEY`, `HEDERA_OPERATOR_KEY_TYPE=ECDSA`,
+    `HEDERA_MIRROR_NODE_URL`, `ROUTER_PRIVATE_KEY`, `ALLOWED_ORIGIN=<frontend url>`,
+    `HCS_TOPIC_ID` *(empty first deploy → read it from logs → set it → redeploy)*.
+  - **USDC settlement** (from `setup:hts`): `HEDERA_USDC_TOKEN_ID`, `HEDERA_AGENT_ID`,
+    `HEDERA_AGENT_KEY`, `HEDERA_PROVIDER_ID`. (If these are unset the server falls back to
+    a fixed HBAR micropayment via `HEDERA_PAYEE_ID`/`HEDERA_SETTLE_HBAR`.)
+  - Railway sets `PORT`.
+- Smoke test: `curl https://<svc>.up.railway.app/api/health` (shows the USDC settlement
+  config) then `curl -X POST https://<svc>.up.railway.app/api/receipts/emit`.
 
 ---
 
@@ -345,8 +374,9 @@ app.listen(PORT, () => console.log(`BoA Hedera API on :${PORT}`));
 > - On `price`: animate a **price ticker** `price_before → price_after` with the Δ and an
 >   up-arrow — this is the headline. Also append `price_after` to a **sparkline** labeled
 >   "forward curve (emitted by the market)".
-> - On `settle`: show **"paid `<amountHbar>` ℏ on Hedera"** with a link to the payment tx
->   (`hashscanUrl`) — this is the real on-chain micropayment.
+> - On `settle`: show **"paid `<amount>` `<asset>` on Hedera"** (e.g. "0.004713 USDC")
+>   with `from → to` and a link to the payment tx (`hashscanUrl`) — the real on-chain,
+>   agent→provider settlement.
 > - On `sign`: show `router_signature` (truncated) + **"signed by router `<routerAddress>`"**.
 > - On `submit`: show the **consensus sequence #** prominently.
 > - On `done`: show **"on-chain ✓"**, **"signature verified ✓"** (when `signatureValid`),
@@ -510,43 +540,48 @@ VITE_BOA_HEDERA_API=https://<your-railway-service>.up.railway.app
 
 ---
 
-## 6. The HBAR settlement leg — **built-in & verified**
+## 6. USDC settlement on Hedera (HTS, two-party) — **built-in & verified**
 
-The prize centers on **payments on Hedera**, so settlement is an explicit on-chain value
-movement: a sub-cent **HBAR micropayment per agent call**, operator → payee, whose tx id
-becomes the receipt's `settlement_tx`. This is exactly the prize's "micropayment
-streaming / machine-speed settlement."
+Settlement is a real **agent → provider USDC transfer on Hedera**, for **exactly the
+FOAMM-priced cost**. USDC is the unit of account (issued natively via **HTS**); Hedera is
+the settlement layer. The transfer's tx id becomes the receipt's `settlement_tx`.
 
-**This is already wired into the committed `src/server.ts`** (it runs on every emit when
-`HEDERA_PAYEE_ID` is set) and verified live (see Status at top). Env: set
-`HEDERA_PAYEE_ID` (a second testnet account) and optionally `HEDERA_SETTLE_HBAR`
-(default `0.01`). To create a payee account programmatically, run a one-off
-`AccountCreateTransaction` from the funded operator. The SSE stream emits a **`settle`**
-event — `{ txId, hashscanUrl, amountHbar }` — so the frontend can show the payment with
-its own HashScan link (`https://hashscan.io/testnet/transaction/<id>`). Surface that as a
-second link next to the HCS one. The core logic:
+**This is already wired into the committed `src/server.ts`** and verified live (see
+Status). When `HEDERA_USDC_TOKEN_ID` + `HEDERA_AGENT_ID`/`KEY` + `HEDERA_PROVIDER_ID` are
+set (run `npm run setup:hts`), every emit:
+
+1. computes the cost (`total_cost_usdc`, which tracks the live premium);
+2. transfers that many USDC base units **agent → provider** — the agent is the
+   *autonomous payer*: it sets its own `TransactionId` (pays its own fee) and signs the
+   transfer with its key;
+3. embeds the transfer's tx id as `settlement_tx` in the signed HCS receipt.
+
+The SSE stream emits a **`settle`** event:
+`{ asset: "USDC", amount, from, to, token, txId, hashscanUrl }` — show "paid `<amount>`
+USDC on Hedera" with a link to `hashscanUrl` (the payment tx), next to the HCS link. Core
+logic (from `server.ts`):
 
 ```ts
-import { TransferTransaction, Hbar } from "@hashgraph/sdk";
+import { TransferTransaction, TransactionId, TokenId, AccountId } from "@hashgraph/sdk";
 
-// pay a tiny HBAR amount to a "service provider" account, return the real Hedera tx id
-async function settleOnHedera(): Promise<string | undefined> {
-  const payee = process.env.HEDERA_PAYEE_ID;          // a second testnet account id
-  if (!payee) return undefined;
-  const tx = await new TransferTransaction()
-    .addHbarTransfer(operatorId, new Hbar(-0.001))
-    .addHbarTransfer(payee, new Hbar(0.001))
-    .execute(client);
-  await tx.getReceipt(client);
-  return tx.transactionId!.toString();                // → settlement_tx, real on Hedera
+// USDC transfer AGENT -> PROVIDER for exactly `cost`; agent pays its own fee + signs.
+async function settleUSDC(cost: number) {
+  const units = Math.max(1, Math.round(cost * 1e6));   // USDC has 6 decimals
+  const txId = TransactionId.generate(AccountId.fromString(AGENT_ID));
+  const tx = new TransferTransaction()
+    .setTransactionId(txId)
+    .addTokenTransfer(TokenId.fromString(USDC_TOKEN), AccountId.fromString(AGENT_ID), -units)
+    .addTokenTransfer(TokenId.fromString(USDC_TOKEN), AccountId.fromString(PROVIDER_ID), units)
+    .freezeWith(client);
+  await (await (await tx.sign(agentKey)).execute(client)).getReceipt(client);
+  return { asset: "USDC", amount: (units / 1e6).toFixed(6), txId: txId.toString() };
 }
 ```
 
-Then in the emit handlers, before signing: `const settlement_tx = await settleOnHedera();`
-and pass it into `buildReceipt` (it already honors `src.settlement_tx`). Surface a second
-HashScan link in the UI: `https://hashscan.io/testnet/transaction/<settlement_tx>`. Now
-each click is **price-discovered → paid on Hedera → signed → audited on Hedera** — the
-full agentic-payment loop, end to end on Hedera.
+> Verified: mirror node `token_transfers` showed `-4713 / +4713` base units = `0.004713
+> USDC` (`SUCCESS`); provider balance reached `0.009430 USDC` after 2 calls. If the USDC
+> env vars are absent, `server.ts` falls back to a fixed HBAR micropayment
+> (`HEDERA_PAYEE_ID` / `HEDERA_SETTLE_HBAR`).
 
 ---
 
@@ -555,8 +590,9 @@ full agentic-payment loop, end to end on Hedera.
 1. *"An agent makes a tool call. First, what should it pay?"* → click **Run a paid agent
    call**. The **price ticker** moves `1.0000 → 1.0007 ▲`, the **curve** ticks up —
    *"price discovered on-chain, permissionlessly, by the FOAMM market."*
-2. Pipeline lights up: Price ✓ → Sign ✓ (router address) → Submit ✓ (seq #) → Verify ✓ →
-   **On-chain ✓**. *(With §6: also a real HBAR settlement tx.)*
+2. *"It pays the service provider — in USDC, on Hedera."* The **`settle`** step shows a
+   real **agent → provider USDC transfer** (its own HashScan link). Then Sign ✓ (router) →
+   Submit ✓ (seq #) → Verify ✓ → **On-chain ✓**.
 3. New row tops the **audit log**; click **HashScan** → it's on the public ledger with a
    consensus timestamp.
 4. Click a few more times: *"every call repriced, settled, and recorded — the price
@@ -570,8 +606,40 @@ full agentic-payment loop, end to end on Hedera.
 - **CORS:** set `ALLOWED_ORIGIN` to your exact frontend origin in prod (`*` only for testing).
 - **Keep the topic + curve stable:** set `HCS_TOPIC_ID` after first deploy; the curve seeds
   from on-chain message count, so a stable topic keeps the price continuous.
-- **Funding:** operator account needs testnet HBAR (each emit, and each §6 transfer, costs a
-  fraction of 1 HBAR). Testnet resets periodically → re-fund at <https://portal.hedera.com/faucet>.
+- **Funding:** operator needs HBAR (topic/token/account ops); the **agent account** needs a
+  USDC balance + a little HBAR for its own transfer fees — `npm run setup:hts` provisions
+  both. The provider auto-associates the token on first receipt. Top up the **agent's USDC**
+  when it runs low; testnet resets periodically → re-fund at <https://portal.hedera.com/faucet>.
 - **Mirror lag:** the API polls ~2–6s before `done` — that's real consensus + propagation.
-- **Never** expose `HEDERA_OPERATOR_KEY` / `ROUTER_PRIVATE_KEY` to the browser.
-```
+- **Never** expose `HEDERA_OPERATOR_KEY` / `ROUTER_PRIVATE_KEY` / `HEDERA_AGENT_KEY` to the browser.
+
+---
+
+## 9. Integrating with other agent stacks (BoA as the layer *under* them)
+
+BoA isn't another agent framework — it's the **pricing + settlement + audit layer** that
+any stack calls. The integration surface is one call: when a tool call happens, hit
+`POST /api/receipts/emit` (or the SSE stream) with the call's metadata; BoA prices it,
+settles USDC on Hedera, records the signed receipt, and returns everything. Request body
+(all optional — sensible defaults): `{ agent_ens, model, input_tokens, output_tokens,
+total_cost_usdc? }`. Pass `total_cost_usdc` to charge an exact amount; omit it to let BoA
+price from the FOAMM curve.
+
+- **x402 (pay-per-request):** put BoA in the 402 path — on a paid request, the server-side
+  x402 handler calls `emit`; the returned `settlement.txId` + `sequenceNumber` are the
+  payment proof attached to the response. BoA is the price oracle *and* the settlement +
+  receipt.
+- **A2A / OpenClaw ACP (agent-to-agent commerce):** when agent A buys a service from agent
+  B, B's handler calls `emit` with `agent_ens` = A's id and the provider = B's account —
+  the USDC transfer *is* the A→B settlement, the HCS receipt is the shared, neutral record
+  both sides can audit.
+- **Hedera Agent Kit (JS/TS or Python):** wrap `emit` as an Agent Kit tool
+  (`charge_and_record`) so any Agent-Kit agent can price+settle+audit a tool call in one
+  step.
+- **Raw SDK / your gateway:** call `emit` from your metering middleware after each model
+  call; the receipt's `settlement_tx` ties consumption to an on-chain USDC payment.
+
+Keep it composable: per-agent/per-provider accounts can be supplied per request (extend
+`emit` to accept `agent_id`/`provider_id`), so BoA prices and settles for *many* agents and
+services through one rail. Identity slots in cleanly too — swap `agent_ens` for an **HCS-14
+Universal Agent ID**.

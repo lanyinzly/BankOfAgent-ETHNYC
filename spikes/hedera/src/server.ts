@@ -8,6 +8,9 @@ import {
   TopicMessageSubmitTransaction,
   TopicId,
   TransferTransaction,
+  TransactionId,
+  TokenId,
+  AccountId,
   Hbar,
 } from "@hashgraph/sdk";
 import { ethers } from "ethers";
@@ -26,15 +29,27 @@ import {
  *
  * Each "emit" = one paid agent tool call, end-to-end on Hedera:
  *   1. PRICE   FOAMM premium discovered on-chain (price_before -> price_after)
- *   2. SETTLE  a real HBAR micropayment operator -> payee  (settlement_tx is a live Hedera tx)
+ *   2. SETTLE  a real USDC transfer (HTS) AGENT -> PROVIDER for exactly the priced cost
+ *              (Hedera is the settlement layer; USDC is the unit of account, native via HTS)
  *   3. SIGN    BoA's router signs the usage receipt
  *   4. RECORD  submit the signed receipt to one persistent HCS topic
  *   5. VERIFY  read it back from the mirror node REST API
+ *
+ * Integration surface: any agent stack (x402 middleware, A2A/ACP handler, Hedera Agent
+ * Kit tool, or a raw SDK call) calls POST /api/receipts/emit when a tool call happens —
+ * BoA prices it, settles USDC on Hedera, records the signed receipt, and returns it.
  */
 
 const MIRROR = process.env.HEDERA_MIRROR_NODE_URL ?? "https://testnet.mirrornode.hedera.com";
 const PORT = Number(process.env.PORT ?? 8080);
 const ORIGIN = process.env.ALLOWED_ORIGIN ?? "*";
+
+// HTS-USDC two-party settlement (primary)
+const USDC_TOKEN = process.env.HEDERA_USDC_TOKEN_ID || "";
+const AGENT_ID = process.env.HEDERA_AGENT_ID || "";
+const PROVIDER_ID = process.env.HEDERA_PROVIDER_ID || "";
+const USDC_DECIMALS = 6;
+// HBAR fallback (used only if no USDC settlement is configured)
 const PAYEE = process.env.HEDERA_PAYEE_ID || "";
 const SETTLE_HBAR = Number(process.env.HEDERA_SETTLE_HBAR ?? "0.01");
 
@@ -49,8 +64,11 @@ const num = (v: any, d: number) => (v === undefined || v === "" ? d : Number(v))
 
 const operatorId = process.env.HEDERA_OPERATOR_ID!;
 const operatorKey = parseKey(process.env.HEDERA_OPERATOR_KEY!, process.env.HEDERA_OPERATOR_KEY_TYPE ?? "ECDSA");
+const agentKey = process.env.HEDERA_AGENT_KEY ? PrivateKey.fromStringDer(process.env.HEDERA_AGENT_KEY) : null;
 const router = new ethers.Wallet(process.env.ROUTER_PRIVATE_KEY!);
 const client = Client.forTestnet().setOperator(operatorId, operatorKey);
+
+const usdcEnabled = Boolean(USDC_TOKEN && AGENT_ID && PROVIDER_ID && agentKey);
 
 let TOPIC_ID = process.env.HCS_TOPIC_ID || ""; // ONE persistent topic for the demo
 
@@ -64,7 +82,7 @@ let curveIndex = 0,
 async function ensureTopic(): Promise<string> {
   if (!TOPIC_ID) {
     const resp = await new TopicCreateTransaction()
-      .setTopicMemo("BoA agent-payment receipts (FOAMM-priced)")
+      .setTopicMemo("BoA agent-payment receipts (USDC-settled, FOAMM-priced)")
       .setAdminKey(operatorKey.publicKey)
       .setSubmitKey(operatorKey.publicKey)
       .execute(client);
@@ -97,33 +115,80 @@ function txHashscan(id: string): string {
   return `https://hashscan.io/testnet/transaction/${acct}-${(ts ?? "").replace(".", "-")}`;
 }
 
-// SETTLE: a real HBAR micropayment operator -> payee. Returns the live Hedera tx id.
-async function settleOnHedera(): Promise<{ txId: string; hashscanUrl: string; amountHbar: number } | null> {
-  if (!PAYEE) return null;
-  const tx = await new TransferTransaction()
-    .addHbarTransfer(operatorId, new Hbar(-SETTLE_HBAR))
-    .addHbarTransfer(PAYEE, new Hbar(SETTLE_HBAR))
-    .execute(client);
-  await tx.getReceipt(client); // wait for consensus (SUCCESS)
-  const txId = tx.transactionId!.toString();
-  return { txId, hashscanUrl: txHashscan(txId), amountHbar: SETTLE_HBAR };
+type Settlement = {
+  asset: string;
+  amount: string;
+  from: string;
+  to: string;
+  token?: string;
+  txId: string;
+  hashscanUrl: string;
+};
+
+/**
+ * SETTLE: move value on Hedera for exactly `cost` USDC.
+ * Primary: HTS-USDC transfer AGENT -> PROVIDER (agent is the autonomous payer + signer).
+ * Fallback: a fixed HBAR micropayment operator -> payee, if USDC isn't configured.
+ */
+async function settleValue(cost: number): Promise<Settlement | null> {
+  if (usdcEnabled) {
+    const units = Math.max(1, Math.round(cost * 10 ** USDC_DECIMALS));
+    const txId = TransactionId.generate(AccountId.fromString(AGENT_ID)); // agent pays its own fee
+    const tx = new TransferTransaction()
+      .setTransactionId(txId)
+      .addTokenTransfer(TokenId.fromString(USDC_TOKEN), AccountId.fromString(AGENT_ID), -units)
+      .addTokenTransfer(TokenId.fromString(USDC_TOKEN), AccountId.fromString(PROVIDER_ID), units)
+      .freezeWith(client);
+    const signed = await tx.sign(agentKey!);
+    await (await signed.execute(client)).getReceipt(client);
+    const id = txId.toString();
+    return {
+      asset: "USDC",
+      amount: (units / 10 ** USDC_DECIMALS).toFixed(6),
+      from: AGENT_ID,
+      to: PROVIDER_ID,
+      token: USDC_TOKEN,
+      txId: id,
+      hashscanUrl: txHashscan(id),
+    };
+  }
+  if (PAYEE) {
+    const tx = await new TransferTransaction()
+      .addHbarTransfer(operatorId, new Hbar(-SETTLE_HBAR))
+      .addHbarTransfer(PAYEE, new Hbar(SETTLE_HBAR))
+      .execute(client);
+    await tx.getReceipt(client);
+    const id = tx.transactionId!.toString();
+    return { asset: "HBAR", amount: String(SETTLE_HBAR), from: operatorId, to: PAYEE, txId: id, hashscanUrl: txHashscan(id) };
+  }
+  return null;
 }
 
-function buildReceipt(src: any, priceBefore: number, priceAfter: number, settlementTx?: string): UnsignedReceipt {
-  const base = sampleUnsignedReceipt();
+function costFrom(base: UnsignedReceipt, src: any, priceAfter: number): number {
+  if (src?.total_cost_usdc) return Number(src.total_cost_usdc);
   const inTok = num(src?.input_tokens, base.input_tokens);
   const outTok = num(src?.output_tokens, base.output_tokens);
-  const cost = +(0.000002 * (inTok + outTok) * priceAfter).toFixed(6); // cost tracks the premium
+  return +(0.000002 * (inTok + outTok) * priceAfter).toFixed(6); // cost tracks the premium
+}
+
+function assembleReceipt(
+  base: UnsignedReceipt,
+  src: any,
+  before: number,
+  after: number,
+  cost: number,
+  settlementTx?: string,
+): UnsignedReceipt {
   return {
     ...base,
     agent_ens: src?.agent_ens ?? base.agent_ens,
     model: src?.model ?? base.model,
-    input_tokens: inTok,
-    output_tokens: outTok,
-    total_cost_usdc: src?.total_cost_usdc ?? String(cost),
-    settlement_tx: settlementTx ?? src?.settlement_tx ?? base.settlement_tx,
-    price_before: priceBefore.toFixed(4),
-    price_after: priceAfter.toFixed(4),
+    input_tokens: num(src?.input_tokens, base.input_tokens),
+    output_tokens: num(src?.output_tokens, base.output_tokens),
+    total_cost_usdc: String(cost),
+    settlement_tx: settlementTx ?? base.settlement_tx,
+    price_before: before.toFixed(4),
+    price_after: after.toFixed(4),
   };
 }
 
@@ -140,8 +205,11 @@ app.get("/api/health", async (_req, res) => {
     topicId: TOPIC_ID || null,
     operator: operatorId,
     routerAddress: await router.getAddress(),
-    payee: PAYEE || null,
-    settleHbar: PAYEE ? SETTLE_HBAR : 0,
+    settlement: usdcEnabled
+      ? { asset: "USDC", token: USDC_TOKEN, agent: AGENT_ID, provider: PROVIDER_ID }
+      : PAYEE
+        ? { asset: "HBAR", payee: PAYEE, amount: SETTLE_HBAR }
+        : null,
     nextPremium: premiumAt(curveIndex + 1),
   });
 });
@@ -152,8 +220,13 @@ app.post("/api/receipts/emit", async (req, res) => {
     const topicId = await ensureTopic();
     const before = premiumAt(curveIndex),
       after = premiumAt(curveIndex + 1);
-    const settle = await settleOnHedera();
-    const receipt: UsageReceipt = await signReceipt(buildReceipt(req.body, before, after, settle?.txId), router);
+    const base = sampleUnsignedReceipt();
+    const cost = costFrom(base, req.body, after);
+    const settle = await settleValue(cost);
+    const receipt: UsageReceipt = await signReceipt(
+      assembleReceipt(base, req.body, before, after, cost, settle?.txId),
+      router,
+    );
     const submit = await new TopicMessageSubmitTransaction()
       .setTopicId(TopicId.fromString(topicId))
       .setMessage(JSON.stringify(receipt))
@@ -176,7 +249,7 @@ app.post("/api/receipts/emit", async (req, res) => {
       bytesMatch: canonicalJSON(receipt as any) === canonicalJSON(readBack as any),
       priceBefore: receipt.price_before,
       priceAfter: receipt.price_after,
-      settlement: settle, // { txId, hashscanUrl, amountHbar } | null
+      settlement: settle, // { asset, amount, from, to, token?, txId, hashscanUrl } | null
       digest: receiptDigest(receipt),
       hashscanUrl: topicUrl(topicId),
       mirrorUrl: `${MIRROR}/api/v1/topics/${topicId}/messages/${seq}`,
@@ -197,18 +270,15 @@ app.get("/api/receipts/emit/stream", async (req, res) => {
     const routerAddress = await router.getAddress();
     const before = premiumAt(curveIndex),
       after = premiumAt(curveIndex + 1);
+    const base = sampleUnsignedReceipt();
+    const cost = costFrom(base, req.query, after);
 
-    send("price", {
-      priceBefore: before.toFixed(4),
-      priceAfter: after.toFixed(4),
-      delta: +(after - before).toFixed(4),
-    });
+    send("price", { priceBefore: before.toFixed(4), priceAfter: after.toFixed(4), delta: +(after - before).toFixed(4), cost: String(cost) });
 
-    const settle = await settleOnHedera();
+    const settle = await settleValue(cost);
     send("settle", settle ?? { skipped: true });
 
-    const unsigned = buildReceipt(req.query, before, after, settle?.txId);
-    const receipt = await signReceipt(unsigned, router);
+    const receipt = await signReceipt(assembleReceipt(base, req.query, before, after, cost, settle?.txId), router);
     send("sign", { router_signature: receipt.router_signature, routerAddress, recovered: verifyReceipt(receipt) });
 
     send("submit_start", { topicId });
@@ -272,4 +342,6 @@ app.get("/api/receipts", async (_req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`BoA Hedera API on :${PORT}  (payee=${PAYEE || "none"}, settle=${SETTLE_HBAR}ℏ)`));
+app.listen(PORT, () =>
+  console.log(`BoA Hedera API on :${PORT}  (settlement=${usdcEnabled ? `USDC ${USDC_TOKEN} ${AGENT_ID}→${PROVIDER_ID}` : PAYEE ? `HBAR→${PAYEE}` : "none"})`),
+);
