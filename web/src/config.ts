@@ -53,3 +53,13 @@ export const ROUTER_APP_URL = (
   import.meta.env.VITE_ROUTER_APP_URL ??
   'https://boa-newapi-production.up.railway.app/'
 ).trim();
+
+/** BoA × Hedera agentic-payments API (boa-hedera-service). LIVE-only: prices, settles
+ *  USDC on Hedera (HTS), and anchors a signed receipt on HCS. Empty → "configure" notice. */
+export const HEDERA_API = (
+  import.meta.env.VITE_BOA_HEDERA_API ??
+  import.meta.env.NEXT_PUBLIC_BOA_HEDERA_API ??
+  ''
+)
+  .trim()
+  .replace(/\/+$/, '');

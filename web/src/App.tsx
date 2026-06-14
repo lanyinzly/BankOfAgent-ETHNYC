@@ -20,6 +20,7 @@ import Explainer from './components/Explainer';
 import Slides from './components/Slides';
 import Reveal from './components/Reveal';
 import AgentFleet from './components/AgentFleet';
+import AgentPaymentsDemo from './components/AgentPaymentsDemo';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -226,6 +227,7 @@ export default function App() {
           <a href="#about">About</a>
           <a href="#loop">Demo</a>
           <a href="#fleet">Fleet</a>
+          <a href="#payments">Payments</a>
           <a href="#integrations">Integrations</a>
         </div>
         <div className={`pill ${USING_MOCK ? 'pill--mock' : 'pill--live'}`}>
@@ -472,6 +474,9 @@ export default function App() {
 
       {/* ── agent fleet · ENS identity (live Sepolia) ── */}
       <AgentFleet />
+
+      {/* ── agent payments · Hedera (live testnet: HTS settle + HCS audit) ── */}
+      <AgentPaymentsDemo />
 
       {/* ── integrations slide page ── */}
       <Slides />

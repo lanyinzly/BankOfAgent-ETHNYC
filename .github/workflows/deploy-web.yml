@@ -1,0 +1,42 @@
+name: Deploy web → Vercel (production)
+
+# Auto-deploy the web/ frontend to Vercel production on every push to the
+# integration branch. Requires one repo secret: VERCEL_TOKEN (Settings →
+# Secrets and variables → Actions → New repository secret).
+#
+# Org/Project ids are not secret — they identify the linked Vercel project
+# (randomzlys-projects / boa-web-demo). NEXT_PUBLIC_RELAY_URL and other VITE_*
+# build vars are read from the Vercel project's Environment Variables at build
+# time (set once in the Vercel dashboard), so no code change is needed to flip
+# mock↔live or point at the relay/ENS/Hedera services.
+
+on:
+  push:
+    branches: [claude/build]
+    paths:
+      - "web/**"
+      - ".github/workflows/deploy-web.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: vercel-web-prod
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_O1Yq30oqrIQn1bRByOmxYLQU
+      VERCEL_PROJECT_ID: prj_BmI1y6h2l5Kwd4vl2HUvFPeAxLck
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm i -g vercel@latest
+      - run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+      - run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+      - run: vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"

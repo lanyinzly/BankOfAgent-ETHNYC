@@ -14,6 +14,9 @@ interface ImportMetaEnv {
   readonly NEXT_PUBLIC_SEPOLIA_RPC_URL?: string;
   /** Model router/relay app (new-api console) linked from the nav. */
   readonly VITE_ROUTER_APP_URL?: string;
+  /** BoA × Hedera agentic-payments API (boa-hedera-service). */
+  readonly VITE_BOA_HEDERA_API?: string;
+  readonly NEXT_PUBLIC_BOA_HEDERA_API?: string;
 }
 
 interface ImportMeta {
