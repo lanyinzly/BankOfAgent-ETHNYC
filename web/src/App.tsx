@@ -20,6 +20,7 @@ import Explainer from './components/Explainer';
 import Slides from './components/Slides';
 import Reveal from './components/Reveal';
 import AgentFleet from './components/AgentFleet';
+import AgentIdentityWidget from './components/AgentIdentityWidget';
 import AgentPaymentsDemo from './components/AgentPaymentsDemo';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -537,6 +538,9 @@ export default function App() {
           with zero code changes.
         </p>
       </footer>
+
+      {/* always-on agent identity (ENS) — create/connect a wallet → gasless ENS name */}
+      <AgentIdentityWidget />
     </div>
   );
 }

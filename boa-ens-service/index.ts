@@ -54,6 +54,7 @@ const registryAbi = parseAbi([
   "function owner(bytes32 node) view returns (address)",
   "function resolver(bytes32 node) view returns (address)",
   "function setSubnodeRecord(bytes32 node, bytes32 label, address owner, address resolver, uint64 ttl)",
+  "function setSubnodeOwner(bytes32 node, bytes32 label, address owner)",
 ]);
 const resolverAbi = parseAbi([
   "function setAddr(bytes32 node, address a)",
@@ -302,8 +303,9 @@ app.post("/agents", (req: any, res: any) => {
     await wait(subnameTx);
     sse("step", { step: "subname", status: "done", txHash: subnameTx, link: txLink(subnameTx) });
 
-    // ② address
-    const agent = agentAddress(fullName);
+    // ② address — point the ENS at the supplied agent wallet, else derive one
+    const provided = String(req.body?.address || "").trim();
+    const agent = /^0x[0-9a-fA-F]{40}$/.test(provided) ? getAddress(provided as Address) : agentAddress(fullName);
     const addrTx = await send("setAddr", PUBLIC_RESOLVER, resolverAbi, [node, agent]);
     await wait(addrTx);
     sse("step", { step: "address", status: "done", txHash: addrTx, link: txLink(addrTx), address: agent });
@@ -325,6 +327,8 @@ app.post("/agents", (req: any, res: any) => {
     sse("result", {
       ensName: fullName,
       address: agent,
+      owner: account.address, // operator keeps registry ownership (gasless updates); claim to hand off
+      selfCustody: false,
       records: { "boa.usage": usageJson, description, avatar },
       links: { ens: ensLink(fullName), etherscan: txLink(subnameTx) },
     });
@@ -339,6 +343,37 @@ app.post("/agents", (req: any, res: any) => {
     res.end();
   });
 });
+
+// Hand a subname's registry ownership to the agent (self-custody), ON DEMAND.
+// Still operator-signed, so the USER pays 0 gas. After this the operator can no
+// longer update that name's records — that becomes the agent's responsibility.
+app.post(
+  "/agents/claim",
+  asyncH(async (req, res) => {
+    if (!wallet || !account) return res.status(400).json({ error: "minting disabled: no PRIVATE_KEY configured" });
+    const name = String(req.body?.name || "").trim();
+    const address = String(req.body?.address || "").trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) return res.status(400).json({ error: "valid address required" });
+    const label = name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+    if (!label) return res.status(400).json({ error: "invalid name" });
+    const fullName = `${label}.${FLEET_PARENT}`;
+    const node = namehash(fullName);
+    const cur = getAddress(
+      (await pub.readContract({ address: ENS_REGISTRY, abi: registryAbi, functionName: "owner", args: [node] })) as Address,
+    );
+    if (cur !== account.address) return res.status(409).json({ error: `not claimable (owner=${cur})` });
+    const tx = await wallet.writeContract({
+      address: ENS_REGISTRY,
+      abi: registryAbi,
+      functionName: "setSubnodeOwner",
+      args: [FLEET_NODE, labelhash(label), getAddress(address)],
+      account,
+      chain: sepolia,
+    });
+    await pub.waitForTransactionReceipt({ hash: tx });
+    res.json({ ensName: fullName, owner: getAddress(address), selfCustody: true, claimTx: txLink(tx), ens: ensLink(fullName) });
+  }),
+);
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log("");
