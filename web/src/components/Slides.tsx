@@ -2,10 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useGSAP } from '@gsap/react';
 import { gsap, prefersReducedMotion } from '../lib/gsap';
-import { AGENT_A, RELAY_DISPLAY_URL } from '../config';
+import { CHAT_API_BASE, CHAT_KEY_DISPLAY, CHAT_MODEL } from '../config';
 import Reveal from './Reveal';
 
-const V1 = `${RELAY_DISPLAY_URL}/v1`;
+const V1 = `${CHAT_API_BASE}/v1`;
 
 interface Slide {
   k: string;
@@ -27,10 +27,10 @@ const SLIDES: Slide[] = [
 
 agent = OpenAI(
   base_url="${V1}",
-  api_key="${AGENT_A}",
+  api_key="${CHAT_KEY_DISPLAY}",
 )
 agent.chat.completions.create(
-  model="boa-router/auto",
+  model="${CHAT_MODEL}",
   messages=[...],
 )`}</code>
       </pre>

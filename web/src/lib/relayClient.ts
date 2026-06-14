@@ -6,7 +6,7 @@
 // relay. There is no second code path — switching is purely the base URL.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { RELAY_URL } from '../config';
+import { CHAT_API_BASE, CHAT_API_KEY, CHAT_LIVE, CHAT_MODEL, RELAY_URL } from '../config';
 import type {
   BuyResult,
   ChatResult,
@@ -79,13 +79,26 @@ export const relay = {
     return fetch(`${RELAY_URL}/boa/usage?agent=${encodeURIComponent(agent)}`).then(ok<UsageReceipt[]>);
   },
 
-  // POST /v1/chat/completions  (OpenAI-compatible; auth via Bearer <ens>)
-  async chat(agent: string, prompt: string, model = 'boa-router/auto'): Promise<ChatResult> {
-    const res = await fetch(`${RELAY_URL}/v1/chat/completions`, {
+  // POST /v1/chat/completions  (OpenAI-compatible)
+  //
+  // Live: when a gateway key is configured, the call goes straight to the real
+  // OpenAI-compatible gateway (CHAT_API_BASE) with the sk- key and CHAT_MODEL —
+  // a real model round-trip. Mock: same OpenAI shape, served in-browser by MSW
+  // at ${RELAY_URL}/v1, authed with the agent's ENS per the BoA contract.
+  //
+  // `opts.spot` is the live FOAMM spot (USDC / 1k tokens) used to meter the real
+  // token usage the gateway returns (vanilla gateways don't emit x-boa-usage).
+  async chat(agent: string, prompt: string, opts?: { spot?: number }): Promise<ChatResult> {
+    const url = CHAT_LIVE
+      ? `${CHAT_API_BASE}/v1/chat/completions`
+      : `${RELAY_URL}/v1/chat/completions`;
+    const model = CHAT_LIVE ? CHAT_MODEL : 'boa-router/auto';
+
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${agent}`,
+        Authorization: `Bearer ${CHAT_LIVE ? CHAT_API_KEY : agent}`,
       },
       body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }] }),
     });
@@ -93,7 +106,9 @@ export const relay = {
     if (!res.ok) {
       let detail = '';
       try {
-        detail = (await res.json())?.error ?? '';
+        const j = await res.json();
+        // BoA mock returns { error: string }; OpenAI gateways return { error: { message } }.
+        detail = (typeof j?.error === 'string' ? j.error : j?.error?.message) ?? '';
       } catch {
         /* ignore */
       }
@@ -103,27 +118,32 @@ export const relay = {
     const data = await res.json();
     const header = res.headers.get('x-boa-usage');
 
-    // The metering receipt rides on the x-boa-usage header (per contract). Fall
-    // back to the OpenAI-style `usage` block in the body if it isn't exposed.
-    const usage: UsageReceipt = header
-      ? (JSON.parse(header) as UsageReceipt)
-      : {
-          id: data.id,
-          agent,
-          model: data.model,
-          prompt_tokens: data.usage?.prompt_tokens ?? 0,
-          completion_tokens: data.usage?.completion_tokens ?? 0,
-          total_tokens: data.usage?.total_tokens ?? 0,
-          cost: 0,
-          price_before: 0,
-          price_after: 0,
-          currency: 'USDC',
-          timestamp: Date.now(),
-        };
+    // The BoA mock rides the metering receipt on the x-boa-usage header. A vanilla
+    // gateway doesn't, so meter its real token counts against the live FOAMM spot.
+    let usage: UsageReceipt;
+    if (header) {
+      usage = JSON.parse(header) as UsageReceipt;
+    } else {
+      const total = data.usage?.total_tokens ?? 0;
+      const spot = opts?.spot ?? 0;
+      usage = {
+        id: data.id,
+        agent,
+        model: data.model ?? model,
+        prompt_tokens: data.usage?.prompt_tokens ?? 0,
+        completion_tokens: data.usage?.completion_tokens ?? 0,
+        total_tokens: total,
+        cost: Math.round((total / 1000) * spot * 1e4) / 1e4,
+        price_before: spot,
+        price_after: spot,
+        currency: 'USDC',
+        timestamp: Date.now(),
+      };
+    }
 
     return {
       id: data.id,
-      model: data.model,
+      model: data.model ?? model,
       content: data.choices?.[0]?.message?.content ?? '',
       usage,
     };

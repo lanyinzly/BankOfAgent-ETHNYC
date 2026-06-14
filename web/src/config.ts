@@ -29,6 +29,38 @@ export const AGENT_B = 'agent-b.boa.eth';
 export const MARKET_ID = 'frontier-llm.q3';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Model gateway (OpenAI-compatible, e.g. New API on Railway). The actual model
+// CALL in the demo ("Call a model" / "Second agent calls") hits THIS directly —
+// base_url + an sk- key + a model id. Identity, vouchers and FOAMM pricing stay
+// on the BoA relay/mock above; only the inference round-trip is real.
+// ─────────────────────────────────────────────────────────────────────────────
+export const CHAT_API_BASE = (
+  import.meta.env.VITE_CHAT_API_BASE ??
+  'https://boa-newapi-production.up.railway.app'
+)
+  .trim()
+  .replace(/\/+$/, '');
+
+/**
+ * Gateway token. Set VITE_CHAT_API_KEY (e.g. in the Vercel project env).
+ * SECURITY: Vite inlines this into the public client bundle, so anyone viewing
+ * the site can read it — use a rate-limited / disposable token you can rotate.
+ * Empty → the demo falls back to the in-browser mock response.
+ */
+export const CHAT_API_KEY = (import.meta.env.VITE_CHAT_API_KEY ?? '').trim();
+
+/** Model id the demo calls through the gateway. */
+export const CHAT_MODEL = (
+  import.meta.env.VITE_CHAT_MODEL ?? 'anthropic/claude-opus-4-6'
+).trim();
+
+/** True when a gateway key is configured → real inference; else mock fallback. */
+export const CHAT_LIVE = CHAT_API_KEY !== '';
+
+/** Placeholder shown in copy-paste snippets — never the real key. */
+export const CHAT_KEY_DISPLAY = 'sk-...';
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ENS identity layer (boa-ens-service). LIVE-only: every name/address/record is
 // read from real Sepolia ENS. Set VITE_ENS_API_BASE to the boa-ens-service URL.
 // ─────────────────────────────────────────────────────────────────────────────

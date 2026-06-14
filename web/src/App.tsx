@@ -136,14 +136,15 @@ export default function App() {
 
   const doCall = useCallback(
     async (agent: string, prompt: string, set: (c: ChatResult) => void) => {
-      const r = await run(`call:${agent}`, () => relay.chat(agent, prompt));
+      // Meter the real token usage against the live FOAMM spot the app tracks.
+      const r = await run(`call:${agent}`, () => relay.chat(agent, prompt, { spot: price?.currentPremium }));
       if (r) {
         set(r);
         await refreshLedger();
       }
       return r;
     },
-    [run, refreshLedger],
+    [run, refreshLedger, price],
   );
 
   // tokenId can be passed explicitly (the auto-loop does this to avoid relying on

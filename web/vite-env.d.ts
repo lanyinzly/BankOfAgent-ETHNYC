@@ -14,6 +14,13 @@ interface ImportMetaEnv {
   readonly NEXT_PUBLIC_SEPOLIA_RPC_URL?: string;
   /** Model router/relay app (new-api console) linked from the nav. */
   readonly VITE_ROUTER_APP_URL?: string;
+  /** OpenAI-compatible model gateway the demo's "Call a model" hits directly. */
+  readonly VITE_CHAT_API_BASE?: string;
+  /** sk- token for the gateway. Inlined into the public bundle — use a disposable,
+   *  rate-limited token. Empty → the call falls back to the in-browser mock. */
+  readonly VITE_CHAT_API_KEY?: string;
+  /** Model id sent to the gateway (default: anthropic/claude-opus-4-6). */
+  readonly VITE_CHAT_MODEL?: string;
   /** BoA × Hedera agentic-payments API (boa-hedera-service). */
   readonly VITE_BOA_HEDERA_API?: string;
   readonly NEXT_PUBLIC_BOA_HEDERA_API?: string;

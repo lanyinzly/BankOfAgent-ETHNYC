@@ -5,21 +5,21 @@
 
 import { useState } from 'react';
 import CodeBlock from './CodeBlock';
-import { AGENT_A, RELAY_DISPLAY_URL } from '../config';
+import { CHAT_API_BASE, CHAT_KEY_DISPLAY, CHAT_MODEL } from '../config';
 
-const V1 = `${RELAY_DISPLAY_URL}/v1`;
+const V1 = `${CHAT_API_BASE}/v1`;
 
 const PYTHON = `# Hermes (or any OpenAI-compatible agent) → Bank of Agent.
-# The ONLY change is base_url + your agent's ENS as the key.
+# The ONLY change is base_url + your gateway key.
 from openai import OpenAI
 
 hermes = OpenAI(
-    base_url="${V1}",        # ← the BoA relay /v1
-    api_key="${AGENT_A}",        # ← your agent's ENS (or key)
+    base_url="${V1}",   # ← the BoA relay /v1
+    api_key="${CHAT_KEY_DISPLAY}",   # ← your gateway key (sk-…)
 )
 
 resp = hermes.chat.completions.create(
-    model="boa-router/auto",                  # BoA routes across modalities
+    model="${CHAT_MODEL}",   # BoA routes across modalities
     messages=[{"role": "user", "content": "Hedge my Q3 inference cost."}],
 )
 print(resp.choices[0].message.content)
@@ -30,11 +30,11 @@ import OpenAI from "openai";
 
 const hermes = new OpenAI({
   baseURL: "${V1}", // ← the BoA relay /v1
-  apiKey: "${AGENT_A}",     // ← your agent's ENS (or key)
+  apiKey: "${CHAT_KEY_DISPLAY}", // ← your gateway key (sk-…)
 });
 
 const r = await hermes.chat.completions.create({
-  model: "boa-router/auto",
+  model: "${CHAT_MODEL}",
   messages: [{ role: "user", content: "Price 1M tokens of forward inference." }],
 });
 console.log(r.choices[0].message.content);
@@ -42,10 +42,10 @@ console.log(r.choices[0].message.content);
 
 const CURL = `# Raw HTTP — works from any language or agent runtime.
 curl ${V1}/chat/completions \\
-  -H "Authorization: Bearer ${AGENT_A}" \\
+  -H "Authorization: Bearer ${CHAT_KEY_DISPLAY}" \\
   -H "Content-Type: application/json" \\
   -d '{
-        "model": "boa-router/auto",
+        "model": "${CHAT_MODEL}",
         "messages": [{"role":"user","content":"What is Bank of Agent?"}]
       }' -i
 # -i prints headers so you can see x-boa-usage (tokens, cost, price_before/after).`;
@@ -67,7 +67,7 @@ export default function ConnectAgent() {
       </h2>
       <p className="connect__lead">
         BoA speaks the OpenAI API. Any compliant agent joins the exchange by pointing its{' '}
-        <code>base_url</code> at <code>{V1}</code> and authenticating with its ENS. Below: the
+        <code>base_url</code> at <code>{V1}</code> and authenticating with an API key. Below: the
         Hermes agent, connected in one line.
       </p>
 
