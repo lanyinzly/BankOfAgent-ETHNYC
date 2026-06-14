@@ -12,6 +12,21 @@
 
 import { estimateTokens, messagesToText, type ChatMessage } from "./metering.ts";
 
+// Flatten an Anthropic Messages request (system + messages, string or blocks)
+// into plain text for token estimation in stub mode.
+function anthropicInputText(req: CompletionRequest): string {
+  const parts: string[] = [];
+  const sys = (req as any).system;
+  if (typeof sys === "string") parts.push(sys);
+  else if (Array.isArray(sys)) parts.push(sys.map((b: any) => b?.text ?? "").join("\n"));
+  for (const m of req.messages ?? []) {
+    if (typeof m.content === "string") parts.push(m.content);
+    else if (Array.isArray(m.content))
+      parts.push(m.content.map((b: any) => (typeof b === "string" ? b : (b?.text ?? JSON.stringify(b)))).join("\n"));
+  }
+  return parts.join("\n");
+}
+
 export interface UpstreamResult {
   // OpenAI-shaped chat.completion object to return to the caller
   response: Record<string, unknown>;
@@ -43,6 +58,12 @@ export class UpstreamModel {
   async complete(req: CompletionRequest, requestId: string): Promise<UpstreamResult> {
     if (this.isStub) return this.stub(req, requestId);
     return this.forward(req, requestId);
+  }
+
+  // Anthropic-native Messages API (POST /v1/messages).
+  async messages(req: CompletionRequest, requestId: string): Promise<UpstreamResult> {
+    if (this.isStub) return this.stubMessages(req, requestId);
+    return this.forwardMessages(req, requestId);
   }
 
   private stub(req: CompletionRequest, requestId: string): UpstreamResult {
@@ -122,5 +143,72 @@ export class UpstreamModel {
     const outputTokens = usage.completion_tokens ?? estimateTokens(String(completionText));
     if (!response.id) response.id = requestId;
     return { response, completionText: String(completionText), inputTokens, outputTokens, model };
+  }
+
+  // ---- Anthropic Messages API ----
+
+  private messagesUrl(): string {
+    const b = this.baseUrl!.replace(/\/+$/, "");
+    if (b.endsWith("/messages")) return b;
+    if (/\/v\d+$/.test(b)) return `${b}/messages`;
+    return `${b}/v1/messages`;
+  }
+
+  private stubMessages(req: CompletionRequest, requestId: string): UpstreamResult {
+    const model = req.model || "boa-stub-anthropic";
+    const promptText = anthropicInputText(req);
+    const lastUser = [...(req.messages ?? [])].reverse().find((m) => m.role === "user")?.content ?? "";
+    const lastUserText = typeof lastUser === "string" ? lastUser : JSON.stringify(lastUser);
+    const text =
+      `[BoA stub model] Received your Anthropic-format request via the BoA relay. ` +
+      `You said: "${lastUserText}". Set UPSTREAM_BASE_URL + UPSTREAM_API_KEY to forward to a real model.`;
+
+    const inputTokens = estimateTokens(promptText);
+    const outputTokens = estimateTokens(text);
+    const response = {
+      id: "msg_" + requestId,
+      type: "message",
+      role: "assistant",
+      model,
+      content: [{ type: "text", text }],
+      stop_reason: "end_turn",
+      stop_sequence: null,
+      usage: { input_tokens: inputTokens, output_tokens: outputTokens },
+    };
+    return { response, completionText: text, inputTokens, outputTokens, model };
+  }
+
+  private async forwardMessages(req: CompletionRequest, requestId: string): Promise<UpstreamResult> {
+    const url = this.messagesUrl();
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": this.apiKey!,
+        "anthropic-version": "2023-06-01",
+        authorization: `Bearer ${this.apiKey}`, // some gateways (e.g. new-api) accept either
+      },
+      body: JSON.stringify(req),
+    });
+    const ct = res.headers.get("content-type") || "";
+    const raw = await res.text();
+    if (!res.ok) {
+      throw new Error(`upstream ${res.status} from ${url}: ${raw.slice(0, 500)}`);
+    }
+    if (!ct.includes("json") || raw.trimStart().startsWith("<")) {
+      throw new Error(
+        `upstream returned non-JSON (${ct || "?"}) from ${url} — check UPSTREAM_BASE_URL points at the base (it should resolve to /v1/messages). Body: ${raw.slice(0, 160)}`,
+      );
+    }
+    const response = JSON.parse(raw) as Record<string, any>;
+    const model = (response.model as string) || req.model || "upstream";
+    const completionText = Array.isArray(response.content)
+      ? response.content.map((b: any) => b?.text ?? "").join("")
+      : "";
+    const usage = response.usage ?? {};
+    const inputTokens = usage.input_tokens ?? estimateTokens(anthropicInputText(req));
+    const outputTokens = usage.output_tokens ?? estimateTokens(completionText);
+    if (!response.id) response.id = "msg_" + requestId;
+    return { response, completionText, inputTokens, outputTokens, model };
   }
 }

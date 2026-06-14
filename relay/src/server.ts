@@ -11,7 +11,7 @@ import { MembershipService } from "./membership.ts";
 import { UpstreamModel } from "./upstream.ts";
 import { costUsdc } from "./metering.ts";
 import { randomUUID } from "node:crypto";
-import type { Agent } from "./types.ts";
+import type { Agent, UsageReceipt } from "./types.ts";
 
 export function buildApp(cfg: Config) {
   const identity = new StaticIdentityProvider();
@@ -57,73 +57,92 @@ export function buildApp(cfg: Config) {
     });
   });
 
+  // Extract the agent credential from either an OpenAI-style `Authorization:
+  // Bearer` header or an Anthropic-style `x-api-key` header. Value is an agent
+  // API key OR an agent ENS name.
+  function agentToken(req: any): string {
+    const auth = req.headers["authorization"];
+    if (typeof auth === "string" && auth.startsWith("Bearer ")) return auth.slice(7).trim();
+    const xkey = req.headers["x-api-key"];
+    if (typeof xkey === "string" && xkey) return xkey.trim();
+    return "";
+  }
+
+  // Meter usage -> charge quota (mock USDC settle) -> sign a usage receipt.
+  async function meterAndRecord(
+    agent: Agent,
+    result: { model: string; inputTokens: number; outputTokens: number },
+    requestId: string,
+  ): Promise<UsageReceipt> {
+    const cost = costUsdc(result.inputTokens, result.outputTokens, cfg.priceInputPer1k, cfg.priceOutputPer1k);
+    const charge = membership.charge(agent.address, cost);
+    const settle = settlement.settle(agent, charge.charged, requestId);
+    // FOAMM premium snapshot (a call does not move the curve, so before == after)
+    const priceSnapshot = (await adapter.price()).currentPremium;
+    return proof.record({
+      request_id: requestId,
+      agent_ens: agent.ens,
+      membership_token_id: charge.membership_token_id,
+      model: result.model,
+      input_tokens: result.inputTokens,
+      output_tokens: result.outputTokens,
+      total_cost_usdc: charge.charged,
+      settlement_tx: settle.settlement_tx,
+      price_before: priceSnapshot,
+      price_after: priceSnapshot,
+    });
+  }
+
+  function setUsageHeader(res: any, receipt: UsageReceipt, agent: Agent) {
+    res.setHeader(
+      "x-boa-usage",
+      JSON.stringify({
+        request_id: receipt.request_id,
+        agent: agent.ens,
+        membership_token_id: receipt.membership_token_id,
+        input_tokens: receipt.input_tokens,
+        output_tokens: receipt.output_tokens,
+        total_cost_usdc: receipt.total_cost_usdc,
+        settlement_tx: receipt.settlement_tx,
+        quota_remaining_usdc: membership.availableQuota(agent.address),
+        router_signature: receipt.router_signature,
+      }),
+    );
+  }
+
+  // Shared pipeline for both inference dialects: ① auth ② membership/quota
+  // ③ forward to upstream (or stub) ④ meter + settle + sign receipt + header.
+  async function handleInference(req: any, res: any, kind: "openai" | "anthropic") {
+    const agent = identity.resolveByBearer(agentToken(req));
+    if (!agent) {
+      res.status(401).json({
+        error: { message: "missing/invalid agent credential (Authorization: Bearer or x-api-key — agent key or ENS)", type: "auth" },
+      });
+      return;
+    }
+    if (!membership.hasAccess(agent.address)) {
+      res.status(402).json({
+        error: { message: `agent ${agent.ens} has no active membership or quota; POST /boa/membership/buy first`, type: "no_quota" },
+      });
+      return;
+    }
+    const requestId = "boa-req-" + randomUUID();
+    const result =
+      kind === "anthropic"
+        ? await upstream.messages(req.body ?? {}, requestId)
+        : await upstream.complete(req.body ?? {}, requestId);
+    const receipt = await meterAndRecord(agent, result, requestId);
+    setUsageHeader(res, receipt, agent);
+    res.json(result.response);
+  }
+
   // ---- OpenAI-compatible inference ----
   // POST /v1/chat/completions   Authorization: Bearer <agent-key | agent-ens>
-  app.post(
-    "/v1/chat/completions",
-    wrap(async (req, res) => {
-      const auth = req.headers["authorization"] || "";
-      const token = typeof auth === "string" && auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-      const agent = identity.resolveByBearer(token);
-      if (!agent) {
-        res.status(401).json({ error: { message: "missing/invalid Authorization bearer (agent key or ENS)", type: "auth" } });
-        return;
-      }
-      // ① membership / quota check
-      if (!membership.hasAccess(agent.address)) {
-        res.status(402).json({
-          error: {
-            message: `agent ${agent.ens} has no active membership or quota; POST /boa/membership/buy first`,
-            type: "no_quota",
-          },
-        });
-        return;
-      }
+  app.post("/v1/chat/completions", wrap((req, res) => handleInference(req, res, "openai")));
 
-      const requestId = "boa-req-" + randomUUID();
-      // ② forward to upstream model (or stub echo)
-      const result = await upstream.complete(req.body ?? {}, requestId);
-
-      // ③ meter usage + settle (mock USDC) + decrement quota
-      const cost = costUsdc(result.inputTokens, result.outputTokens, cfg.priceInputPer1k, cfg.priceOutputPer1k);
-      const charge = membership.charge(agent.address, cost);
-      const settle = settlement.settle(agent, charge.charged, requestId);
-
-      // FOAMM premium snapshot (a call does not move the curve, so before == after)
-      const priceInfo = await adapter.price();
-      const priceSnapshot = priceInfo.currentPremium;
-
-      const receipt = await proof.record({
-        request_id: requestId,
-        agent_ens: agent.ens,
-        membership_token_id: charge.membership_token_id,
-        model: result.model,
-        input_tokens: result.inputTokens,
-        output_tokens: result.outputTokens,
-        total_cost_usdc: charge.charged,
-        settlement_tx: settle.settlement_tx,
-        price_before: priceSnapshot,
-        price_after: priceSnapshot,
-      });
-
-      // ④ OpenAI-shaped response + x-boa-usage header
-      res.setHeader(
-        "x-boa-usage",
-        JSON.stringify({
-          request_id: receipt.request_id,
-          agent: agent.ens,
-          membership_token_id: receipt.membership_token_id,
-          input_tokens: receipt.input_tokens,
-          output_tokens: receipt.output_tokens,
-          total_cost_usdc: receipt.total_cost_usdc,
-          settlement_tx: receipt.settlement_tx,
-          quota_remaining_usdc: membership.availableQuota(agent.address),
-          router_signature: receipt.router_signature,
-        }),
-      );
-      res.json(result.response);
-    }),
-  );
+  // ---- Anthropic-native inference ----
+  // POST /v1/messages   x-api-key: <agent-key | agent-ens>  (Bearer also accepted)
+  app.post("/v1/messages", wrap((req, res) => handleInference(req, res, "anthropic")));
 
   // ---- FOAMM price (reads getWrapOracle) ----
   // GET /boa/price?market=<id>
