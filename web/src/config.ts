@@ -1,10 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Runtime configuration. The ONE switch between mock and live is the relay URL.
+//
+// NOTE: every env lookup below uses `||` (not `??`) on purpose — an env var that
+// is *defined but empty* (e.g. `VITE_ENS_API_BASE=` in a Vercel project) should
+// fall through to the next option / built-in default, not short-circuit to "".
 // ─────────────────────────────────────────────────────────────────────────────
 
 const configured = (
-  import.meta.env.NEXT_PUBLIC_RELAY_URL ??
-  import.meta.env.VITE_RELAY_URL ??
+  import.meta.env.NEXT_PUBLIC_RELAY_URL ||
+  import.meta.env.VITE_RELAY_URL ||
   ''
 ).trim();
 
@@ -35,7 +39,7 @@ export const MARKET_ID = 'frontier-llm.q3';
 // on the BoA relay/mock above; only the inference round-trip is real.
 // ─────────────────────────────────────────────────────────────────────────────
 export const CHAT_API_BASE = (
-  import.meta.env.VITE_CHAT_API_BASE ??
+  import.meta.env.VITE_CHAT_API_BASE ||
   'https://boa-newapi-production.up.railway.app'
 )
   .trim()
@@ -47,11 +51,11 @@ export const CHAT_API_BASE = (
  * the site can read it — use a rate-limited / disposable token you can rotate.
  * Empty → the demo falls back to the in-browser mock response.
  */
-export const CHAT_API_KEY = (import.meta.env.VITE_CHAT_API_KEY ?? '').trim();
+export const CHAT_API_KEY = (import.meta.env.VITE_CHAT_API_KEY || '').trim();
 
 /** Model id the demo calls through the gateway. */
 export const CHAT_MODEL = (
-  import.meta.env.VITE_CHAT_MODEL ?? 'anthropic/claude-opus-4-6'
+  import.meta.env.VITE_CHAT_MODEL || 'anthropic/claude-opus-4-6'
 ).trim();
 
 /** True when a gateway key is configured → real inference; else mock fallback. */
@@ -62,11 +66,12 @@ export const CHAT_KEY_DISPLAY = 'sk-...';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENS identity layer (boa-ens-service). LIVE-only: every name/address/record is
-// read from real Sepolia ENS. Set VITE_ENS_API_BASE to the boa-ens-service URL.
+// read from real Sepolia ENS. Defaults to the deployed service; override with
+// VITE_ENS_API_BASE.
 // ─────────────────────────────────────────────────────────────────────────────
 export const ENS_API_BASE = (
-  import.meta.env.VITE_ENS_API_BASE ??
-  import.meta.env.NEXT_PUBLIC_ENS_API_BASE ??
+  import.meta.env.VITE_ENS_API_BASE ||
+  import.meta.env.NEXT_PUBLIC_ENS_API_BASE ||
   'https://boa-ens-service-production.up.railway.app'
 )
   .trim()
@@ -75,33 +80,35 @@ export const ENS_API_BASE = (
 /** Read-only Sepolia RPC the FRONTEND uses to INDEPENDENTLY re-resolve ENS names
  *  client-side (no private key ever in the browser). A public RPC is fine. */
 export const ENS_READ_RPC = (
-  import.meta.env.VITE_SEPOLIA_RPC_URL ??
-  import.meta.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ??
+  import.meta.env.VITE_SEPOLIA_RPC_URL ||
+  import.meta.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
   'https://ethereum-sepolia-rpc.publicnode.com'
 ).trim();
 
 /** The model router/relay app (new-api console) — linked from the top nav. */
 export const ROUTER_APP_URL = (
-  import.meta.env.VITE_ROUTER_APP_URL ??
+  import.meta.env.VITE_ROUTER_APP_URL ||
   'https://boa-newapi-production.up.railway.app/'
 ).trim();
 
 /** BoA × Hedera agentic-payments API (boa-hedera-service). LIVE-only: prices, settles
- *  USDC on Hedera (HTS), and anchors a signed receipt on HCS. Empty → "configure" notice. */
+ *  USDC on Hedera (HTS), and anchors a signed receipt on HCS. Defaults to the deployed
+ *  service; override with VITE_BOA_HEDERA_API. */
 export const HEDERA_API = (
-  import.meta.env.VITE_BOA_HEDERA_API ??
-  import.meta.env.NEXT_PUBLIC_BOA_HEDERA_API ??
-  ''
+  import.meta.env.VITE_BOA_HEDERA_API ||
+  import.meta.env.NEXT_PUBLIC_BOA_HEDERA_API ||
+  'https://boa-hedera-service-production.up.railway.app'
 )
   .trim()
   .replace(/\/+$/, '');
 
 /** BoA × Arc agent-economy API (boa-arc-service). LIVE-only: agent-native price
- *  discovery + x402 USDC settlement on Arc testnet. Empty → "configure" notice. */
+ *  discovery + x402 USDC settlement on Arc testnet. Defaults to the deployed
+ *  service; override with VITE_BOA_ARC_API. */
 export const ARC_API = (
-  import.meta.env.VITE_BOA_ARC_API ??
-  import.meta.env.NEXT_PUBLIC_BOA_ARC_API ??
-  ''
+  import.meta.env.VITE_BOA_ARC_API ||
+  import.meta.env.NEXT_PUBLIC_BOA_ARC_API ||
+  'https://boa-arc-service-production.up.railway.app'
 )
   .trim()
   .replace(/\/+$/, '');
